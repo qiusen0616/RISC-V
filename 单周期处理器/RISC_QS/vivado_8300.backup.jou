@@ -1,0 +1,16 @@
+#-----------------------------------------------------------
+# Vivado v2020.2 (64-bit)
+# SW Build 3064766 on Wed Nov 18 09:12:45 MST 2020
+# IP Build 3064653 on Wed Nov 18 14:17:31 MST 2020
+# Start of session at: Fri Jan 12 11:34:29 2024
+# Process ID: 8300
+# Current directory: D:/business/business7/RISC_QS
+# Command line: vivado.exe -gui_launcher_event rodinguilauncherevent7392 D:\business\business7\RISC_QS\RISC_QS.xpr
+# Log file: D:/business/business7/RISC_QS/vivado.log
+# Journal file: D:/business/business7/RISC_QS\vivado.jou
+#-----------------------------------------------------------
+start_gui
+open_project D:/business/business7/RISC_QS/RISC_QS.xpr
+update_compile_order -fileset sources_1
+update_compile_order -fileset sources_1
+update_compile_order -fileset sources_1

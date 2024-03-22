@@ -1,0 +1,18 @@
+# compile verilog/system verilog design source files
+verilog xil_defaultlib  \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/Regfile.v" \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/alu.v" \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/data_memory.v" \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/id.v" \
+"../../../../RISC_QS.srcs/sources_1/new/imm_extender.v" \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/inst_memory.v" \
+"../../../../RISC_QS.srcs/sources_1/new/pc_next.v" \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/pc_reg.v" \
+"../../../../RISC_QS.srcs/sources_1/imports/risc_v_QS/top_cpu.v" \
+"../../../../RISC_QS.srcs/sim_1/new/tb_top.v" \
+
+# compile glbl module
+verilog xil_defaultlib "glbl.v"
+
+# Do not sort compile order
+nosort
