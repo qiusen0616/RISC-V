@@ -1,0 +1,4322 @@
+\chapter{超级监管器拓展，1.0版}
+% \chapter{Hypervisor Extension, Version 1.0}
+\label{hypervisor}
+
+这章描述了RISC-V超级监管级拓展。为了支持运行在type-1或type-2超级监管器之上的宾客（guest）操作系统的efficient hosting，
+超级监管器虚拟化了监管级架构。
+% This chapter describes the RISC-V hypervisor extension, which virtualizes the
+% supervisor-level architecture to support the efficient hosting of guest
+% operating systems atop a type-1 or type-2 hypervisor.
+超级监管级拓展把监管模式修改成了{\em 超级监管器拓展的监管模式（hypervisor-extended supervisor mode）}（HS-模式, 或简称 {\em 监管级
+模式}）。一个超级监管器或一个兼容宿主机的操作系统运行在这个HS-模式上。
+% The hypervisor extension changes supervisor mode into
+% {\em hypervisor-extended supervisor mode} (HS-mode, or {\em hypervisor
+% mode} for short), where a hypervisor or a hosting-capable operating system
+% runs.  
+超级监管级拓展也添加了从{\em 宾客物理地址（guest physical addresses）}到监管级物理地址的翻译阶段。其为宾客操作系统
+虚拟化内存和内存映射输入输出子系统。
+% The hypervisor extension also adds another stage of address translation,
+% from {\em guest physical addresses} to supervisor physical addresses,
+% to virtualize the
+% memory and memory-mapped I/O subsystems for a guest operating system.  
+HS-模式的行为很像S-模式，但是多了额外的指令和在虚拟S-模式（VS-mode）上，控制地址翻译新阶段和支持host一个宾客OS的控制状态寄存器。
+HS-mode
+% acts the same as S-mode, but with additional instructions and CSRs that control
+% the new stage of address translation and support hosting a guest OS in virtual
+% S-mode (VS-mode).
+
+常规的S-模式操作系统能够在HS-模式或在VS-模式下作为宾客操作系统不加修改的运行。
+% Regular S-mode operating systems can execute without modification either in
+% HS-mode or as VS-mode guests.
+
+在HS-模式中，一个操作系统或一个超级监管器可以通过相同的SBI（监管器二进制接口）与机器交互，就像一个操作系统直接在S-模式与机器交互一样。
+一个HS-模式的超级监管器应该为它的VS-模式的宾客操作系统实现SBI。
+% In HS-mode, an OS or hypervisor interacts with the machine through the same
+% SBI as an OS normally does from S-mode.  An HS-mode hypervisor is expected to
+% implement the SBI for its VS-mode guest.
+
+超级监管器拓展依赖于基于“I”的带有32{\tt x}寄存器的基础整数ISA（RV32I或RV64I），而不是RV32E，因为它只有16{\tt x}寄存器。
+% The hypervisor extension depends on an ``I'' base integer ISA with
+% 32 {\tt x} registers (RV32I or RV64I), not RV32E, which has only
+% 16 {\tt x} registers.
+CSR的{\tt mtval}寄存器不可以是只读的零，并且标准的基于页面的地址翻译（RV32的Sv32或RV64的Sv39的精简版）必须被支持，
+% CSR {\tt mtval} must not be read-only zero, and
+% standard page-based address translation must be supported, either
+% Sv32 for RV32, or a minimum of Sv39 for RV64.
+
+通过为CSR的{\tt misa}寄存器的第7位（关联字母H）设置为1来开启超级监管级拓展。
+% The hypervisor extension is enabled by setting bit 7 in the {\tt misa} CSR,
+% which corresponds to the letter H.
+
+实现超级管理器拓展的RISC—V硬件线程不提倡硬布线{\tt misa}[7]，如若不然，这个拓展可能被关闭。
+% RISC-V harts that implement the hypervisor extension are encouraged
+% not to hardwire {\tt misa}[7], so that the extension may be disabled.
+
+\begin{commentary}
+
+这个基线特权架构被设计用来简化经典的虚拟技术的使用，一个宾客操作系统在用户级别运行在其上，因为很少的特权指令可以被很容易的检测到和陷入。
+% The baseline privileged architecture is designed to simplify the use of classic
+% virtualization techniques, where a guest OS is run at user-level, as
+% the few privileged instructions can be easily detected and trapped.
+
+这个超级监管器通过减少这种陷入的频率提升了虚拟化的性能。
+% The hypervisor extension improves virtualization performance by
+% reducing the frequency of these traps.
+
+在没有实现超级管理器拓展的平台上，通过在S-模式运行超级监管器和为了超级监管器CSR访问而陷入到M-模式和为了维持阴影页表（shadow page table）而陷入到M-模式，
+超级监管器已经被设计去高效地模拟.
+% The hypervisor extension has been designed to be efficiently
+% emulable on platforms that do not implement the extension, by running
+% the hypervisor in S-mode and trapping into M-mode for hypervisor CSR accesses
+% and to maintain shadow page tables.  
+
+大部分type-2类型的超级监管器CSR访问是有效的S-模式访问，所以不需要被陷入。
+超级监管器可以类似地支持嵌套虚拟化。
+% The majority of CSR accesses for
+% type-2 hypervisors are valid S-mode accesses so need not be trapped.
+% Hypervisors can support nested virtualization analogously.
+\end{commentary}
+
+\section{特权模式}
+% \section{Privilege Modes}
+
+当前的{\em 虚拟模式}（由字母V表示）指示硬件线程当前是否运行在一个宾客中。
+% The current {\em virtualization mode}, denoted V, indicates whether the hart
+% is currently executing in a guest.
+
+当 V=1 时，运行在VS-模式的一个宾客操作系统之上的这个硬件线程，或者是处于虚拟S-模式（VS-模式），或者是处于虚拟U-模式（VU-模式）。
+% When V=1, the hart is either in virtual S-mode (VS-mode), or in virtual U-mode
+% (VU-mode) atop a guest OS running in VS-mode.
+
+当 V=0 时，运行在HS-模式的一个操作系统之上的硬件线程，或者是处于M-模式，处于HS-模式，或者是处于U-模式。
+% When V=0, the hart is either in M-mode, in HS-mode, or in U-mode atop an OS
+% running in HS-mode.
+
+虚拟模式也指示是否两个阶段地址翻译是激活（V=1）的还是非激活的（V=0）。表~\ref{tab:HPrivModes}列出了
+带有超级监管器拓展的一个RISC-V硬件线程的可能的特权模式。
+% The virtualization mode also indicates whether two-stage address translation
+% is active (V=1) or inactive (V=0).  Table~\ref{tab:HPrivModes} lists the
+% possible privilege modes of a RISC-V hart with the hypervisor extension.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|c|c||l|l|l|}
+  \hline
+   虚拟           & 名义上的   & \multirow{2}{*}{简称} & \multirow{2}{*}{名字} & 双阶段（Two-Stage） \\
+   模式 (V)       & 特权 &                               &                       & 翻译 \\ \hline
+   0              & U         & U-模式  & 用户模式 & 关闭 \\
+   0              & S         & HS-模式 & 超级监管器拓展的监管级模式 & 关闭 \\
+   0              & M         & M-模式  & 机器模式 & 关闭 \\
+  \hline
+   1              & U         & VU-模式 & 虚拟的用户模式 & 开启 \\
+   1              & S         & VS-模式 & 虚拟的监管级模式 & 开启 \\
+  \hline
+ \end{tabular}
+\end{center}
+\caption{带有超级监管级拓展的特权模式。 Privilege modes with the hypervisor extension.}
+\label{tab:HPrivModes}
+\end{table*}
+
+对于特权模式U和VU来说，\textit{名义上的特权模式} 是U模式。
+对于特权模式HS和VS来说，名义上的特权模式是S模式。
+% For privilege modes U and VU, the \textit{nominal privilege mode} is~U,
+% and for privilege modes HS and VS, the nominal privilege mode is~S.
+
+HS-模式比VS-模式有更高的权限，VS-模式比VU-模式有更高的权限。
+当执行在U-模式下，VS-模式的中断是被全局关闭的。
+% HS-mode is more privileged
+% than VS-mode, and VS-mode is more privileged than VU-mode.
+% VS-mode interrupts are globally disabled when executing in U-mode.
+
+\begin{commentary}
+
+这个描述没有考虑到U-模式或VU-模式的中断的可能性。并且如果一个用户级别的中断拓展被采用的话，上述描述也将被更正。
+% This description does not consider the possibility of U-mode or VU-mode interrupts and will be revised if an extension for user-level interrupts is adopted.
+\end{commentary}
+
+
+\section{超级监管器和虚拟监管器的控制状态寄存器}
+% \section{Hypervisor and Virtual Supervisor CSRs}
+
+一个运行在HS-模式的操作系统或超级监管器用监管级CSR与异常、中断和地址转换子系统进行交互。
+% An OS or hypervisor running in HS-mode uses the supervisor CSRs to interact with the exception,
+% interrupt, and address-translation subsystems.
+为了管理两阶段地址翻译（two-stage address translation）和控制VS-模式宾客操作系统的行为，额外的CSR被提供给了HS-模式，但没有提供给VS-模式。
+% Additional CSRs are provided to HS-mode, but not to VS-mode, to manage
+% two-stage address translation and to control the behavior of a VS-mode guest:
+额外的CSR如下：
+{\tt hstatus}, {\tt hedeleg}, {\tt hideleg}, {\tt hvip}, {\tt hip}, {\tt hie},
+{\tt hgeip}, {\tt hgeie}, {\tt henvcfg}, {\tt henvcfgh},
+{\tt hcounteren}, {\tt htimedelta}, {\tt htimedeltah}, {\tt htval},
+{\tt htinst}, and {\tt hgatp}.
+
+此外，一些{\em 虚拟监管级} CSR（VS CSRs）是普通监管级CSR的复制。例如：{\tt vsstatus}是一般{\tt sstatus}CSR在VS模式下的复制。
+% Furthermore, several {\em virtual supervisor} CSRs (VS CSRs) are replicas
+% of the normal supervisor CSRs.
+% For example, {\tt vsstatus} is the VS CSR that duplicates the usual
+% {\tt sstatus} CSR.
+
+当V=1时，VS控制状态寄存器
+% When V=1, the VS CSRs substitute for the corresponding supervisor CSRs,
+% taking over all functions of the usual supervisor CSRs except as specified
+% otherwise.
+一般的读或修改一个监管级CSR的指令应该访问相应的VS控制状态寄存器。
+% Instructions that normally read or modify a supervisor CSR shall instead
+% access the corresponding VS CSR.
+当V=1时，试图通过各自的CSR地址，直接读或写一个VS控制状态寄存器会引起一个虚拟指令异常。
+% When V=1, an attempt to read or write a VS CSR directly by its own
+% separate CSR address causes a virtual instruction exception.
+（从U-模式的尝试会像往常那样引起一个非法指令异常。）
+% (Attempts from U-mode cause an illegal instruction exception as usual.)
+VS控制状态寄存器只能从M-模式或HS-模式访问它们。
+% The VS CSRs can be accessed as themselves only from M-mode or HS-mode.
+
+当V=1时，一般被VS级CSR代替的HS级监管级CSR保持它们的值，但是不影响这个机器的行为，除非具体的文件声明不这么做。
+% While V=1, the normal HS-level supervisor CSRs that are replaced by
+% VS CSRs retain their values but do
+% not affect the behavior of the machine unless specifically documented to
+% do so.
+相反的，当V=0时，VS级控制状态寄存器通常不影响这个机器的行为，除非被CSR指令读或写。
+% Conversely, when V=0, the VS CSRs do not ordinarily affect the behavior of
+% the machine other than being readable and writable by CSR instructions.
+
+一些标准的监管级控制状态寄存器（{\tt senvcfg}，{\tt scounteren}，和{\tt scontext}，可能还有其他）没有对应的VS控制状态寄存器。
+% Some standard supervisor CSRs ({\tt senvcfg},
+% {\tt scounteren}, and {\tt scontext},
+% possibly others) have no matching VS CSR.
+即使当V=1时，这些监管级控制状态寄存器保持他们的功能和可访问性，除非VS模式和VU模式代替了HS模式和U模式。
+% These supervisor CSRs continue to have their usual function and
+% accessibility even when V=1, except with VS-mode and VU-mode substituting for
+% HS-mode and U-mode.
+超级监管器软件应该在需要时手动更换这些寄存器的值。
+% Hypervisor software is expected to manually swap the contents of these
+% registers as needed.
+
+\begin{commentary}
+  只有当监管级控制状态寄存器必须被复制时，与之匹配的VS控制状态寄存器才会存在。
+  （监管级控制状态寄存器在被陷入自动写入，或在陷入实体（trap entry）之后、SRET之前影响了指令的执行，或当软件独自不能在恰当时刻交换一个控制状态寄存器时，
+  才被复制）
+Matching VS CSRs exist only for the supervisor CSRs that must be
+duplicated, which are mainly those that get automatically written by
+traps or that impact instruction execution immediately after trap entry
+and/or right before SRET, when software alone is unable to swap a CSR at
+exactly the right moment.
+  当前，大多数监管级控制状态寄存器都属于这一类，但将来可能不会。
+Currently, most supervisor CSRs fall into this category, but future ones
+might not.
+\end{commentary}
+
+在这章，我们用术语“{\em HSXLEN}”指代在执行在HS模式下有效的XLEN，和术语“{\em VSXLEN}”指代执行在VS模式下有效的XLEN。
+% In this chapter, we use the term {\em HSXLEN} to refer to the effective XLEN
+% when executing in HS-mode, and {\em VSXLEN} to refer to the effective
+% XLEN when executing in VS-mode.
+
+\subsection{超级管理器状态寄存器({\tt hstatus})}
+% \subsection{Hypervisor Status Register ({\tt hstatus})}
+
+{\tt hstatus}寄存器是一个HSXLEN位读/写寄存器。当HSXLEN=32时，其规格表示为图~\ref{hstatusreg-rv32}。
+当HSXLEN=64时，其规格表示为图~\ref{hstatusreg}
+% The {\tt hstatus} register is an HSXLEN-bit read/write register
+% formatted as shown in Figure~\ref{hstatusreg-rv32} when HSXLEN=32 and
+% Figure~\ref{hstatusreg} when HSXLEN=64.
+这个{\tt hstatus}寄存器为追踪和控制VS模式宾客操作系统的异常行为提供便利，类似于{\tt mstatus}寄存器。
+% The {\tt hstatus}
+% register provides facilities analogous to the {\tt mstatus} register
+% for tracking and controlling the exception behavior of a VS-mode guest.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\scalebox{0.95}{
+\begin{tabular}{YcccWYccWcccccF}
+\\
+\instbitrange{31}{23} &
+\instbit{22} &
+\instbit{21} &
+\instbit{20} &
+\instbitrange{19}{18} &
+\instbitrange{17}{12} &
+\instbitrange{11}{10} &
+\instbit{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbitrange{4}{0} \\
+\hline
+\multicolumn{1}{|c|}{\wpri} &
+\multicolumn{1}{c|}{VTSR} &
+\multicolumn{1}{c|}{VTW} &
+\multicolumn{1}{c|}{VTVM} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{VGEIN[5:0]} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{HU} &
+\multicolumn{1}{c|}{SPVP} &
+\multicolumn{1}{c|}{SPV} &
+\multicolumn{1}{c|}{GVA} &
+\multicolumn{1}{c|}{VSBE} &
+\multicolumn{1}{c|}{\wpri} \\
+\hline
+9 & 1 & 1 & 1 & 2 & 6 & 2 & 1 & 1 & 1 & 1 & 1 & 5 \\
+\end{tabular}}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当HSXLEN=32时， 超级监管器状态寄存器（{\tt hstatus}）。 Hypervisor status register ({\tt hstatus}) when HSXLEN=32.}
+\label{hstatusreg-rv32}
+\end{figure*}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{KFScccc}
+\\
+\instbitrange{HSXLEN-1}{34} &
+\instbitrange{33}{32} &
+\instbitrange{31}{23} &
+\instbit{22} &
+\instbit{21} &
+\instbit{20} &
+ \\
+\hline
+\multicolumn{1}{|c|}{\wpri} &
+\multicolumn{1}{c|}{VSXL[1:0]} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{VTSR} &
+\multicolumn{1}{c|}{VTW} &
+\multicolumn{1}{c|}{VTVM} &
+ \\
+\hline
+HSXLEN-34 & 2 & 9 & 1 & 1 & 1 & \\
+\end{tabular}
+\begin{tabular}{cWRWcccccY}
+\\
+&
+\instbitrange{19}{18} &
+\instbitrange{17}{12} &
+\instbitrange{11}{10} &
+\instbit{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbitrange{4}{0} \\
+\hline
+ &
+\multicolumn{1}{|c|}{\wpri} &
+\multicolumn{1}{c|}{VGEIN[5:0]} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{HU} &
+\multicolumn{1}{c|}{SPVP} &
+\multicolumn{1}{c|}{SPV} &
+\multicolumn{1}{c|}{GVA} &
+\multicolumn{1}{c|}{VSBE} &
+\multicolumn{1}{c|}{\wpri} \\
+\hline
+ & 2 & 6 & 2 & 1 & 1 & 1 & 1 & 1 & 5 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当HSXLEN=64时， 超级监管器状态寄存器（{\tt hstatus}）。 Hypervisor status register ({\tt hstatus}) when HSXLEN=64.}
+\label{hstatusreg}
+\end{figure*}
+
+VSXL域控制VS模式下有效的XLEN（VSXLEN），VSXLEN可能与HS模式下的XLEN（HSXLEN）不同。
+% The VSXL field controls the effective XLEN for VS-mode (known as VSXLEN),
+% which may differ from the XLEN for HS-mode (HSXLEN).
+当HSXLEN=32时，VSXL域不存在，并且VSXLEN=32。
+% When HSXLEN=32, the VSXL field does not exist, and VSXLEN=32.
+当HSXLEN=64时，VSXL域是一个\warl\ 域，其被编码为与{\tt misa}的MXL相同的域，在第~\pageref{misabase}页，表~\ref{misabase}中显示。
+% When HSXLEN=64, VSXL is a \warl\ field that is encoded the same as the
+% MXL field of {\tt misa}, shown in Table~\ref{misabase} on
+% page~\pageref{misabase}.
+特别地，一种实现可能会让VSXL成为一个只读的域，而它的值总是保证VSXLEN=HSXLEN。
+% In particular, an implementation may make VSXL be a read-only field whose
+% value always ensures that VSXLEN=HSXLEN.
+
+如果HSXLEN从32位变成更宽的宽度，并且如果VSXL域没有被限制为一个单一的值，那么它得到的值对应于最宽的支持长度，但不超过这个新的HSXLEN。
+% If HSXLEN is changed from 32 to a wider width, and if field VSXL is not
+% restricted to a single value, it gets the value corresponding to the
+% widest supported width not wider than the new HSXLEN.
+
+{\tt hstatus}的VTSR，VTW和VTVM域并定义为类似{\tt mstatus}的TSR，TW和TVM域，但其只在VS模式下影响执行，
+和引起虚拟指令异常而不是非法指令异常。
+% The {\tt hstatus} fields VTSR, VTW, and VTVM are defined analogously to the
+% {\tt mstatus} fields TSR, TW, and TVM, but affect execution only in VS-mode,
+% and cause virtual instruction exceptions instead of illegal instruction
+% exceptions.
+当VTSR=1时，试图在VS模式执行SRET引起一个虚拟指令异常。
+% When VTSR=1, an attempt in VS-mode to execute SRET raises a virtual
+% instruction exception.
+当VTW=1时（假设{\tt mstatus}.TW=0），如果WFI试图在VS模式下执行WFI会引起一个虚拟指令异常
+When VTW=1 (and assuming {\tt mstatus}.TW=0), an attempt in VS-mode to
+execute WFI raises a virtual instruction exception if the WFI does not
+complete within an implementation-specific, bounded time limit.
+当VTVM=1时，试图在VS模式下执行SFENCE.VMA、SINVAL.VMA或访问CSR{\tt satp}会引起一个虚拟指令异常。
+% When VTVM=1, an attempt in VS-mode to execute SFENCE.VMA or SINVAL.VMA or to
+% access CSR {\tt satp} raises a virtual instruction exception.
+
+VGEIN（虚拟宾客外部中断号）域为VS级外部中断选择一个宾客外部中断源。
+% The VGEIN (Virtual Guest External Interrupt Number) field selects a guest
+% external interrupt source for VS-level external interrupts.
+VGEIN是一个 \wlrl\ 域，其必须能够保持在0和最大宾客外部中断号（被称为GEILEN）之间的所有值。
+% VGEIN is a \wlrl\ field that must be able to hold values between zero
+% and the maximum guest external interrupt number (known as GEILEN),
+% inclusive.
+当VGEIN=0时，没有宾客外部中断源为VS级外部中断选中。
+% When VGEIN=0, no guest external interrupt source is selected for VS-level
+% external interrupts.
+GEILEN可能是0，着这种情况下，VGEIN是一个只读的0。
+% GEILEN may be zero, in which case VGEIN may be read-only zero.
+宾客外部中断将在第~\ref{sec:hgeinterruptregs}节被解释，VGEIN的用法将在第~\ref{sec:hinterruptregs}节阐述。
+% Guest external interrupts are explained in
+% Section~\ref{sec:hgeinterruptregs}, and the use of VGEIN is covered
+% further in Section~\ref{sec:hinterruptregs}.
+
+HU域（在U模式下的超级监管器）控制是否虚拟机的加载/存储指令，HLV，HLVX和HSV也可以在U模式下被使用。
+% Field HU (Hypervisor in U-mode) controls whether the virtual-machine
+% load/store instructions, HLV, HLVX, and HSV, can be used also in U-mode.
+当HU=1时，这些指令可以在U模式下执行，就像在HS模式下执行一样。
+% When HU=1, these instructions can be executed in U-mode the same as in
+% HS-mode.
+当HU=0时，在U模式下的所有超级监管级指令都会引起一个非法指令陷入。
+% When HU=0, all hypervisor instructions cause an illegal instruction trap
+% in U-mode.
+
+\begin{commentary}
+  HU位允许超级监管器的一部分运行在U模式下，为软件漏洞提供额外的保护，同时仍保持对虚拟机内存的访问。
+% The HU bit allows a portion of a hypervisor to be run in U-mode for
+% greater protection against software bugs, while still retaining access to
+% a virtual machine's memory.
+\end{commentary}
+
+在HS模式下，任何时候trap的执行，将导致SPV位（监管级上一个虚拟模式）被写入。
+% The SPV bit (Supervisor Previous Virtualization mode) is written by the implementation
+% whenever a trap is taken into HS-mode.
+就像{\tt sstatus}中的SPP位被设置为陷入发生时（名义上的）特权模式，{\tt hstatus}中的SPV位在发生陷入时，被设置为虚拟模式V值。
+当在V=0，执行SRET指令时，V被这是给SPV。
+% Just as the SPP bit in {\tt sstatus} is set to the (nominal) privilege
+% mode at the time of the trap, the SPV bit in {\tt hstatus} is set to the value of the virtualization
+% mode V at the time of the trap.  When an SRET instruction is executed when V=0,
+% V is set to SPV.
+
+当V=1和一个陷入发生在HS模式，SPVP位（监管级上一个虚拟特权）被设置为陷入发生时的名义上的特权模式，就像{\tt sstatus}.SPP。
+% When V=1 and a trap is taken into HS-mode, bit SPVP (Supervisor Previous
+% Virtual Privilege) is set to the nominal privilege mode at the time of the trap,
+% the same as {\tt sstatus}.SPP.
+但是如果在陷入之前V=0，SPVP在陷入实体中不做修改。SPVP控制由虚拟机的加载/存储指令、HLV、HLVX和HSV引起的显示内存访问的有效权限。
+% But if V=0 before a trap, SPVP is left unchanged on trap entry.
+% SPVP controls the effective privilege of explicit memory accesses made by
+% the virtual-machine load/store instructions, HLV, HLVX, and HSV.
+
+\begin{commentary}
+  没有SPVP，如果指令HLV、HLVX和HSV转而去{\tt sstatus}.SPP寻找它们内存访问的有效权限，那么即使HU=1，
+  U模式仍旧不能在VS级别访问虚拟机内存，因为通过SRET进入U模式总是让SPP=0。
+  不像SPP，在HS模式和U模式之间转换不会影响SPVP域。
+% Without SPVP, if instructions HLV, HLVX, and HSV looked instead to
+% {\tt sstatus}.SPP for the effective privilege of their memory accesses,
+% then, even with HU=1, U-mode could not access virtual machine memory at
+% VS-level, because to enter U-mode using SRET always leaves SPP=0.
+% Unlike SPP, field SPVP is untouched by transitions back-and-forth between
+% HS-mode and U-mode.
+\end{commentary}
+
+在任何时候，发生在HS模式下的陷入，使GVA（Guest Virtual Address）域被写入。
+Field GVA (Guest Virtual Address) is written by the implementation
+whenever a trap is taken into HS-mode.
+对于任何将一个宾客虚拟地址写入{\tt stval}的陷入（断点、地址非对齐、访问错误、页错误或宾客页错误（guest-page flaut），
+GVA被置1。对于在HS模式下的其他陷入，GVA被置0。
+% For any trap (breakpoint, address misaligned,
+% access fault, page fault, or guest-page fault) that writes
+% a guest virtual address to {\tt stval}, GVA is set to~1.
+% For any other trap into HS-mode, GVA is set to~0.
+
+\begin{commentary}
+  对于将一个非零值写入{\tt stval}的断点和内存访问陷入，对于SPV域来说，GVA是多余的（这两个位是一致的）。
+  而当HLV、HLVX或HSV指令引起错误时，这两个域是不同的（SPV=0 但是 GVA=1）。
+% For breakpoint and memory access traps
+% that write a nonzero value to {\tt stval},
+% GVA is redundant with field SPV (the two bits are set
+% the same) except when the explicit memory access of an HLV, HLVX, or HSV
+% instruction causes a fault.
+% In that case, SPV=0 but GVA=1.
+\end{commentary}
+
+VSBE位是一个\warl\ 域，其控制VS模式下的显示内存访问的端序问题。
+% The VSBE bit is a \warl\ field that controls the endianness of explicit
+% memory accesses made from VS-mode.
+如果VSBE=0，VS模式下的显示的加载和存储内存访问是小端序的。如果VSBE=1，其是大端序的。
+% If VSBE=0, explicit load and store memory accesses made from VS-mode are
+% little-endian, and if VSBE=1, they are big-endian.
+VSBE也控制所有对VS级别内存管理数据结构的隐式访问的端序问题，比如页表。
+% VSBE also controls the endianness of all implicit accesses to VS-level
+% memory management data structures, such as page tables.
+一个具体的实现可能让VSBE成为一个只读的域，总是指示与HS模式相同的端序。
+% An implementation may make VSBE a read-only field that always specifies
+% the same endianness as HS-mode.
+
+\subsection{超级监管级陷入委托寄存器 ({\tt hedeleg} 和 {\tt hideleg})}
+% \subsection{Hypervisor Trap Delegation Registers ({\tt hedeleg} and {\tt hideleg})}
+
+寄存器{\tt hedeleg}和{\tt hideleg}是HSXLEN位读/写寄存器，其格式如图\ref{hedelegreg}和图\ref{hidelegreg}所示。
+% Registers {\tt hedeleg} and {\tt hideleg} are HSXLEN-bit read/write
+% registers, formatted as shown in Figures \ref{hedelegreg} and
+% \ref{hidelegreg} respectively.
+默认，任意特权级别的所有陷入都在M模式下被处理，尽管M模式经常用{\tt medeleg}和{\tt mideleg}控制状态寄存器
+委托一些陷入给HS模式。{\tt hedeleg} 和 {\tt hideleg}控制状态寄存器允许一些陷入委托到一个VS模式的宾客；他们的布局与
+{\tt medeleg} 和 {\tt mideleg}一致。
+% By default, all traps at any privilege level are handled in M-mode, though
+% M-mode usually uses the {\tt medeleg} and {\tt mideleg} CSRs to delegate
+% some traps to HS-mode.  The {\tt hedeleg} and {\tt hideleg} CSRs allow these
+% traps to be further delegated to a VS-mode guest; their layout is the same
+% as {\tt medeleg} and {\tt mideleg}.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{同步异常 (\warl)} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器异常委托寄存器（{\tt hedeleg}） Hypervisor exception delegation register ({\tt hedeleg}).}
+\label{hedelegreg}
+\end{figure}
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{中断 (\warl)} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器中断委托寄存器（{\tt hideleg}）Hypervisor interrupt delegation register ({\tt hideleg}).}
+\label{hidelegreg}
+\end{figure}
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|r|l|l|}
+\hline
+Bit & Attribute   & Corresponding Exception \\
+\hline
+ 0  & (See text)  & Instruction address misaligned \\
+ 1  & Writable    & Instruction access fault \\
+ 2  & Writable    & Illegal instruction \\
+ 3  & Writable    & Breakpoint \\
+ 4  & Writable    & Load address misaligned \\
+ 5  & Writable    & Load access fault \\
+ 6  & Writable    & Store/AMO address misaligned \\
+ 7  & Writable    & Store/AMO access fault \\
+ 8  & Writable    & Environment call from U-mode or VU-mode \\
+ 9  & Read-only 0 & Environment call from HS-mode \\
+10  & Read-only 0 & Environment call from VS-mode \\
+11  & Read-only 0 & Environment call from M-mode \\
+12  & Writable    & Instruction page fault \\
+13  & Writable    & Load page fault \\
+15  & Writable    & Store/AMO page fault \\
+20  & Read-only 0 & Instruction guest-page fault \\
+21  & Read-only 0 & Load guest-page fault \\
+22  & Read-only 0 & Virtual instruction \\
+23  & Read-only 0 & Store/AMO guest-page fault \\
+\hline
+\end{tabular}
+\end{center}
+\caption{Bits of {\tt hedeleg} that must be writable or must be read-only
+zero.}
+\label{tab:hedeleg-bits}
+\end{table*}
+
+在陷入和相应的{\tt hedeleg}被设置之前，一个已经被委托给HS模式（用{\tt medeleg}）的同步陷入，被进一步委托给VS模式（如果V=1）。
+% A synchronous trap that has been delegated to HS-mode (using
+% {\tt medeleg}) is further delegated to VS-mode if V=1 before the trap and
+% the corresponding {\tt hedeleg} bit is set.
+每个{\tt hedeleg}位应该要么是可写的要么是只读的零。{\tt hedeleg}的许多位需要明确说明是可写的还是0，列举在表~\ref{tab:hedeleg-bits}中。
+% Each bit of {\tt hedeleg} shall be either writable or read-only zero.
+% Many bits of {\tt hedeleg} are required specifically to be writable or
+% zero, as enumerated in Table~\ref{tab:hedeleg-bits}.
+如果IALIGN=32，那么0位（对应于指令地址未对齐异常）必须是可写的。
+% Bit~0, corresponding to instruction address misaligned exceptions, must
+% be writable if IALIGN=32.
+
+\begin{commentary}
+  {\tt hedeleg}的一些位需要是可写的减少了一些超级监管器处理不同实现的压力。
+% Requiring that certain bits of {\tt hedeleg} be writable reduces some of
+% the burden on a hypervisor to handle variations of implementation.
+\end{commentary}
+
+如果{\tt hideleg}相应位被设置，一个已经被委托给HS模式的中断(using {\tt mideleg})将被进一步委托给VS模式，
+% An interrupt that has been delegated to HS-mode (using {\tt mideleg}) is
+% further delegated to VS-mode if the corresponding {\tt hideleg} bit is
+% set.
+在{\tt hideleg}的0-15位中，10、6和2位（与标准VS级别中断相关）是可写的，12、9、5和1位（与标准的S级别中断相关）是只读的0。
+% Among bits 15:0 of {\tt hideleg}, bits 10, 6, and 2 (corresponding
+% to the standard VS-level interrupts) are writable, and bits 12, 9, 5,
+% and 1 (corresponding to the standard S-level interrupts) are read-only
+% zeros.
+
+当一个虚拟监管级外部中断（代码为10）被委托给VS模式时，它自动被机器翻译成VS模式下的监管级外部中断（代码为9），包括在中断陷入中写入{\tt vscause}中的值。
+% When a virtual supervisor external interrupt (code 10) is delegated to
+% VS-mode, it is automatically translated by the machine into a supervisor
+% external interrupt (code 9) for VS-mode, including the value written to
+% {\tt vscause} on an interrupt trap.
+类似地，一个虚拟的监管级时钟中断（6）被翻译成VS模式下的监管器时钟中断（5），和一个虚拟监管级软件中断（2）被翻译成VS模式下的一个监管级软件中断（1）。
+% Likewise, a virtual supervisor timer interrupt (6) is translated into a
+% supervisor timer interrupt (5) for VS-mode, and a virtual supervisor
+% software interrupt (2) is translated into a supervisor software interrupt
+% (1) for VS-mode.
+类似的，翻译过程可能或可能不平台或自定义中断触发（代码为16和更高）。
+Similar translations may or may not be done for platform or custom
+interrupt causes (codes 16 and above).
+
+\subsection{超级监管器中断寄存器 ({\tt hvip}， {\tt hip} 和 {\tt hie})}
+% \subsection{Hypervisor Interrupt Registers ({\tt hvip}, {\tt hip}, and {\tt hie})}
+\label{sec:hinterruptregs}
+
+寄存器{\tt hvip} 是一个HSXLEN位读/写寄存器。一个超级监管器可以写入{\tt hvip}，去指示用于VS模式的虚拟中断。
+% Register {\tt hvip} is an HSXLEN-bit read/write register that a
+% hypervisor can write to indicate virtual interrupts intended for VS-mode.
+不可写的{\tt hvip}的位是只读的0。
+% Bits of {\tt hvip} that are not writable are read-only zeros.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{虚拟中断 Virtual Interrupts (\warl)} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器虚拟中断等待寄存器（{\tt hvip}）  Hypervisor virtual-interrupt-pending register ({\tt hvip}).}
+\label{hvipreg}
+\end{figure}
+
+{\tt hvip}的标准部分（0-15位）被格式化为图~\ref{hvipreg-standard}形式。
+{\tt hvip}的VSEIP、VSTIP和VSSIP位是可写的。
+在{\tt hvip}中，设置VSEIP=1表示一个VS级外部中断。设置VSTIP表示一个VS级时钟中断。
+设置VSSIP表示一个VS级软件中断。
+% The standard portion (bits 15:0) of {\tt hvip} is formatted as shown in
+% Figure~\ref{hvipreg-standard}.
+Bits VSEIP, VSTIP, and VSSIP of {\tt hvip} are writable.
+Setting VSEIP=1 in {\tt hvip} asserts a VS-level external interrupt;
+setting VSTIP asserts a VS-level timer interrupt; and setting VSSIP
+asserts a VS-level software interrupt.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{RcFcFcW}
+\instbitrange{15}{11} &
+\instbit{10} &
+\instbitrange{9}{7} &
+\instbit{6} &
+\instbitrange{5}{3} &
+\instbit{2} &
+\instbitrange{1}{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{VSEIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSTIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSSIP} &
+\multicolumn{1}{c|}{0} \\
+\hline
+5 & 1 & 3 & 1 & 3 & 1 & 2 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{{\tt hvip}的标准部分（0-15位）  Standard portion (bits 15:0) of {\tt hvip}.}
+\label{hvipreg-standard}
+\end{figure*}
+
+寄存器{\tt hip} 和 {\tt hie}是HSXLEN位读/写寄存器。他们分别提供了HS级别的{\tt sip} 和 {\tt sie}。
+% Registers {\tt hip} and {\tt hie} are HSXLEN-bit read/write registers
+% that supplement HS-level's {\tt sip} and {\tt sie} respectively.
+{\tt hip}寄存器表明了等待的VS级和超级监管级特有的中断，而{\tt hie}包含这些中断的使能位。
+% The {\tt hip} register indicates pending VS-level and hypervisor-specific
+% interrupts, while {\tt hie} contains enable bits for the same interrupts.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{Interrupts (\warl)} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器中断等待寄存器（{\tt hip}） Hypervisor interrupt-pending register ({\tt hip}).}
+\label{hipreg}
+\end{figure}
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{Interrupts (\warl)} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管级中断使能寄存器（{\tt hie}） Hypervisor interrupt-enable register ({\tt hie}).}
+\label{hiereg}
+\end{figure}
+
+在{\tt sie}中每个可写的位，在{\tt hip}和{\tt hie}中相对应的位应该是只读的零。
+% For each writable bit in {\tt sie}, the corresponding bit shall be
+% read-only zero in both {\tt hip} and {\tt hie}.
+因此，在{\tt sie}和{\tt hie}中非零位总是互补的，{\tt sip}和{\tt hip}也是一样。
+% Hence, the nonzero bits in {\tt sie} and {\tt hie} are always mutually
+% exclusive, and likewise for {\tt sip} and {\tt hip}.
+
+\begin{commentary}
+  {\tt hip} 和 {\tt hie}的有效位不能设置在HS级的{\tt sip} 和 {\tt sie}中，因为
+  这样做就会让那些没有在硬件上实现超级监管器拓展的平台，不能用软件模拟超级监管器拓展。
+% The active bits of {\tt hip} and {\tt hie} cannot be placed in HS-level's
+% {\tt sip} and {\tt sie} because doing so would make it impossible for
+% software to emulate the hypervisor extension on platforms that do not
+% implement it in hardware.
+\end{commentary}
+
+无论在何时，中断~\textit{i}都应陷入HS模式的情形如下：
+（1）要么是当前操作模式是HS模式，并且{\tt sstatus}寄存器中的SIE位被设置；要么是当前操作模式拥有低于HS模式的权限。
+（2）在{\tt sip}和{\tt sie}或在{\tt hip}和{\tt hie}中，~\textit{i}位被设置；并且
+（3）在{\tt hideleg}中~\textit{i}没有被设置。
+% An interrupt~\textit{i} will trap to HS-mode whenever all of the
+% following are true:
+% (a)~either the current operating mode is HS-mode and the SIE bit in the
+% {\tt sstatus} register is set, or the current operating mode has less
+% privilege than HS-mode;
+% (b)~bit~\textit{i} is set in both {\tt sip} and {\tt sie}, or in both
+% {\tt hip} and {\tt hie}; and
+% (c)~bit~\textit{i} is not set in {\tt hideleg}.
+
+如果{\tt sie}的\textit{i}位是只读的零，在{\tt hip}中相同的位可能是可写的或可能是只读的。
+% If bit~\textit{i} of {\tt sie} is read-only zero, the same bit in
+% register {\tt hip} may be writable or may be read-only.
+当{\tt hip}的\textit{i}位是可写的，一个等待的中断\textit{i}可以通过为这个位写零被清除。
+% When bit~\textit{i} in {\tt hip} is writable, a pending interrupt
+% \textit{i} can be cleared by writing 0 to this bit.
+如果中断\textit{i}可以在{\tt hip}中等待，但{\tt hip}中的~\textit{i}是只读的，那么
+要么这个中断可以通过清除{\tt hvip}的第~\textit{i}位被清除，要么
+这个实现必然提供了其他技术，去清除这个等待的中断（其可能包含一个对执行环境的调用）。
+% If interrupt \textit{i} can become pending in {\tt hip} but
+% bit~\textit{i} in {\tt hip} is read-only, then either
+% the interrupt can be cleared by clearing bit~\textit{i}
+% of {\tt hvip}, or the implementation must provide
+% some other mechanism for clearing the pending interrupt (which may
+% involve a call to the execution environment).
+
+如果在{\tt hip}中，中断可以变成等待着的，那么在{\tt hie}中的对应位应该是可写的。
+{\tt hie}中不可写的位应该是只读的零。
+% A bit in {\tt hie} shall be writable if the corresponding interrupt can
+% ever become pending in {\tt hip}.
+% Bits of {\tt hie} that are not writable shall be read-only zero.
+
+{\tt hip}和{\tt hie}寄存器的标准部分（0-15位）的格式分别显示在图\ref{hipreg-standard}和\ref{hiereg-standard}。
+% The standard portions (bits 15:0) of registers {\tt hip} and {\tt hie}
+% are formatted as shown in Figures \ref{hipreg-standard} and
+% \ref{hiereg-standard} respectively.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{FcccFcFcW}
+\instbitrange{15}{13} &
+\instbit{12} &
+\instbit{11} &
+\instbit{10} &
+\instbitrange{9}{7} &
+\instbit{6} &
+\instbitrange{5}{3} &
+\instbit{2} &
+\instbitrange{1}{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{SGEIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSEIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSTIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSSIP} &
+\multicolumn{1}{c|}{0} \\
+\hline
+3 & 1 & 1 & 1 & 3 & 1 & 3 & 1 & 2 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{{\tt hip}的标准部分（0-15位） Standard portion (bits 15:0) of {\tt hip}.}
+\label{hipreg-standard}
+\end{figure*}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{FcccFcFcW}
+\instbitrange{15}{13} &
+\instbit{12} &
+\instbit{11} &
+\instbit{10} &
+\instbitrange{9}{7} &
+\instbit{6} &
+\instbitrange{5}{3} &
+\instbit{2} &
+\instbitrange{1}{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{SGEIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSEIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSTIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{VSSIE} &
+\multicolumn{1}{c|}{0} \\
+\hline
+3 & 1 & 1 & 1 & 3 & 1 & 3 & 1 & 2 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{{\tt hie}的标准部分（0-15位）Standard portion (bits 15:0) of {\tt hie}.}
+\label{hiereg-standard}
+\end{figure*}
+
+{\tt hip}.SGEIP和{\tt hie}.SGEIE位是为处于监管级（HS级）宾客外部中断使用的中断等待位和中断使能位。
+% Bits {\tt hip}.SGEIP and {\tt hie}.SGEIE are the interrupt-pending and
+% interrupt-enable bits for guest external interrupts at supervisor level
+% (HS-level).
+在{\tt hip}中SGEIP是只读的，并且当且仅当控制寄存器{\tt hgeip}和{\tt hgeie}的位级逻辑与在每一位都为非零时，其值为1。
+(见第8.2.4节~\ref{sec:hgeinterruptregs})
+% SGEIP is read-only in {\tt hip}, and is 1 if and only if the bitwise
+% logical-AND of CSRs {\tt hgeip} and {\tt hgeie} is nonzero in any bit.
+% (See Section~\ref{sec:hgeinterruptregs}.)
+
+{\tt hip}.VSEIP位和{\tt hie}.VSEIE位是VS级外部中的的中断等待位和中断使能位。
+% Bits {\tt hip}.VSEIP and {\tt hie}.VSEIE are the interrupt-pending and
+% interrupt-enable bits for VS-level external interrupts.
+在{\tt hip}中VSEIP位是只读的，是以下中断源的逻辑或：
+% VSEIP is read-only in {\tt hip}, and is the logical-OR of these interrupt
+% sources:
+\begin{tightlist}
+\item
+{\tt hvip}的VSEIP位；
+% bit VSEIP of {\tt hvip};
+\item
+{\tt hstatus}.VGEIN选中的{\tt hgeip}位；和
+% the bit of {\tt hgeip} selected by {\tt hstatus}.VGEIN; and
+\item
+任何其他具体平台针对VS级别的外部中断信号。
+% any other platform-specific external interrupt signal directed to
+% VS-level.
+\end{tightlist}
+
+{\tt hip}.VSTIP位和{\tt hie}.VSTIE位是VS级时钟中断的中断等待和中断使能位。
+在{\tt hip}中VSTIP是只读的，并且是{\tt hvip}.VSTIP和其他具体平台针对VS级别时钟中断信号的逻辑或。
+% Bits {\tt hip}.VSTIP and {\tt hie}.VSTIE are the interrupt-pending and
+% interrupt-enable bits for VS-level timer interrupts.
+% VSTIP is read-only in {\tt hip}, and is the logical-OR of
+% {\tt hvip}.VSTIP and any other platform-specific timer interrupt signal
+% directed to VS-level.
+
+{\tt hip}.VSSIP位和{\tt hie}.VSSIE位是VS级软件中断的中断等待和中断使能位。
+{\tt hip}的VSSIP位是{\tt hvip}的相同位的别名（可写）。
+% Bits {\tt hip}.VSSIP and {\tt hie}.VSSIE are the interrupt-pending and
+% interrupt-enable bits for VS-level software interrupts.
+% VSSIP in {\tt hip} is an alias (writable) of the same bit in {\tt hvip}.
+
+为HS模式指定的多个类似的中断被按照如下降序方式处理：SEI, SSI, STI, SGEI, VSEI, VSSI, VSTI。
+% Multiple simultaneous interrupts destined for HS-mode are handled in the
+% following decreasing priority order:  SEI, SSI, STI, SGEI, VSEI, VSSI, VSTI.
+
+\subsection{超级监管级宾客外部中断寄存器（{\tt hgeip} 和 {\tt hgeie}）}
+% \subsection{Hypervisor Guest External Interrupt Registers ({\tt hgeip} and {\tt hgeie})}
+\label{sec:hgeinterruptregs}
+
+{\tt hgeip}寄存器是一个HSXLEN位只读寄存器，其格式如下图~\ref{hgeipreg}所示，其指示当前硬件线程的等待宾客外部中断。
+% The {\tt hgeip} register is an HSXLEN-bit read-only register, formatted
+% as shown in Figure~\ref{hgeipreg}, that indicates pending guest external
+% interrupts for this hart.
+{\tt hgeie}寄存器是一个HSXLEN位读/写寄存器，其格式如下图~\ref{hgeiereg}所示，其包含当前硬件线程的宾客外部中断的使能位。
+% The {\tt hgeie} register is an HSXLEN-bit read/write register, formatted
+% as shown in Figure~\ref{hgeiereg}, that contains enable bits for the
+% guest external interrupts at this hart.
+宾客外部中断号\textit{i}对应于{\tt hgeip}和{\tt hgeie}中的\textit{i}位。
+Guest external interrupt number \textit{i} corresponds with
+bit~\textit{i} in both {\tt hgeip} and {\tt hgeie}.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}Jc}
+\instbitrange{HSXLEN-1}{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{宾客外部中断  Guest External Interrupts} &
+\multicolumn{1}{c|}{0} \\
+\hline
+HSXLEN-1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器宾客外部中断等待寄存器（{\tt hgeip}） Hypervisor guest external interrupt-pending register ({\tt hgeip}).}
+\label{hgeipreg}
+\end{figure}
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}Jc}
+\instbitrange{HSXLEN-1}{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{宾客外部中断（\warl） Guest External Interrupts (\warl)} &
+\multicolumn{1}{c|}{0} \\
+\hline
+HSXLEN-1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器宾客外部中断使能寄存器（{\tt hgeie}）  Hypervisor guest external interrupt-enable register ({\tt hgeie}).}
+\label{hgeiereg}
+\end{figure}
+
+宾客外部中断代表针对VS级别的各个虚拟机的中断。
+% Guest external interrupts represent interrupts directed to individual
+% virtual machines at VS-level.
+如果一个RISC-V平台支持使一个物理设备直接被一个宾客操作系统通过与超级监管器最小交互的方式控制
+（被称为在一个虚拟机和物理设备之间的\emph{直通（pass-through）}或\emph{直接分配（direct assignment）}（译者注：这里需要注一下这两种方式），
+那么，在这种环境下，从这个设备发出的中断仅供一个特殊的虚拟机。
+% If a RISC-V platform supports placing a physical device under the direct
+% control of a guest OS with minimal hypervisor intervention (known as
+% \emph{pass-through} or \emph{direct assignment} between a virtual machine
+% and the physical device), then, in such circumstance, interrupts from the
+% device are intended for a specific virtual machine.
+{\tt hgeip}的每一位总结了针对一个虚拟硬件线程的\emph{所有}等待中断，由中断控制器收集并报告。
+为了区分从多个设备发出的具体的等待的中断，软件必须询问中断控制器。
+% Each bit of {\tt hgeip} summarizes \emph{all} pending interrupts directed
+% to one virtual hart, as collected and reported by an interrupt
+% controller.
+% To distinguish specific pending interrupts from multiple devices,
+% software must query the interrupt controller.
+
+\begin{commentary}
+  为了支持宾客外部中断，需要一个中断控制器，其会将针对虚拟机的中断和其他中断分开收集。
+% Support for guest external interrupts requires an interrupt controller
+% that can collect virtual-machine-directed interrupts separately from
+% other interrupts.
+\end{commentary}
+
+{\tt hgeip}和{\tt hgeie}中为宾客外部中断实现的位数是\unspecified\ ，并且可能是零。
+% The number of bits implemented in {\tt hgeip} and {\tt hgeie} for guest
+% external interrupts is \unspecified\ and may be zero.
+这个数字被称为\textit{GEILEN}。
+% This number is known as \textit{GEILEN}.
+除了第0位，最低点被最先实现。因此如果GEILEN不是零，1-GEILEN位应该是在{\tt hgeie}中是可写的，
+并且{\tt hgeip}和{\tt hgeie}的其他位应该是只读的零。
+% The least-significant bits are implemented first, apart from bit~0.
+% Hence, if GEILEN is nonzero, bits GEILEN:1 shall be writable in
+% {\tt hgeie}, and all other bit positions shall be read-only zeros in
+% both {\tt hgeip} and {\tt hgeie}.
+
+\begin{commentary}
+
+在一个物理硬件线程中被接收和处理的宾客外部中断集合可能与在其他物理硬件线程接收的不同。
+% The set of guest external interrupts received and handled at one physical
+% hart may differ from those received at other harts.
+在一个物理硬件线程中，宾客外部中断号~\textit{i}不应该与其他硬件线程上的宾客外部中断~\textit{i}相同。
+% Guest external interrupt number~\textit{i} at one physical hart is
+% typically expected not to be the same as guest external
+% interrupt~\textit{i} at any other hart.
+对于任何一个物理硬件线程，可能直接接受宾客外部中断的最大虚拟硬件线程数被GEILEN限制。
+对于RV32的任何实现而言，每个物理硬件线程的最大值为31；对于RV64而言，是63。
+% For any one physical hart, the maximum number of virtual harts that may
+% directly receive guest external interrupts is limited by GEILEN.
+% The maximum this number can be for any implementation is 31 for RV32 and
+% 63 for RV64, per physical hart.
+
+超级监管器总是可以为任何数量的虚拟硬件线程模拟设备，而不受GEILEN的限制。
+% A hypervisor is always free to \emph{emulate} devices for any number of
+% virtual harts without being limited by GEILEN.
+只有直接传递（pass-through）(直接分配)的中断受到GEILEN限制的影响，并且限制是接收这种中断的虚拟硬件线程的数量，而不是接收到的不同中断的数量。
+% Only direct pass-through (direct assignment) of interrupts is affected by
+% the GEILEN limit, and the limit is on the number of virtual harts
+% receiving such interrupts, not the number of distinct interrupts
+% received.
+一个单独的虚拟硬件线程上接收到的不同线程的数量被中断控制器所决定。
+% The number of distinct interrupts a single virtual hart may receive is
+% determined by the interrupt controller.
+\end{commentary}
+
+{\tt hgeie}寄存器选择可以引起监管级（HS级）中断的宾客外部中断的子集。
+{\tt hgeie}中的使能位不会影响通过{\tt hstatus}.VGEIN被{\tt hgeip}选出的VS级外部中断信号。
+% Register {\tt hgeie} selects the subset of guest external interrupts that
+% cause a supervisor-level (HS-level) guest external interrupt.
+% The enable bits in {\tt hgeie} do not affect the VS-level external
+% interrupt signal selected from {\tt hgeip} by {\tt hstatus}.VGEIN.
+
+\subsection{超级监管器环境配置寄存器（{\tt henvcfg} 和 {\tt henvcfgh}）
+ %Hypervisor Environment Configuration Registers
+ %({\tt henvcfg} and {\tt henvcfgh})%
+}
+
+{\tt henvcfg} CSR是一个HSXLEN-bit读/写寄存器，格式化为HSXLEN=64，如图~\ref{fig:henvcfg}所示，它控制虚拟模式V=1时执行环境的某些特征。
+% The {\tt henvcfg} CSR is an HSXLEN-bit read/write register,
+% formatted for HSXLEN=64 as shown in Figure~\ref{fig:henvcfg},
+% that controls certain
+% characteristics of the execution environment when virtualization mode
+% V=1.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{cc@{}Mcc@{}W@{}Wc}
+\instbit{63} &
+\instbit{62} &
+\instbitrange{61}{8} &
+\instbit{7} &
+\instbit{6} &
+\instbitrange{5}{4} &
+\instbitrange{3}{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{STCE} &
+\multicolumn{1}{c|}{PBMTE} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{CBZE} &
+\multicolumn{1}{c|}{CBCFE} &
+\multicolumn{1}{c|}{CBIE} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{FIOM} \\
+\hline
+1 & 1 & 54 & 1 & 1 & 2 & 3 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{HSXLEN=64下，超级监管器环境配置寄存器 （{\tt henvcfg}）。}
+\label{fig:henvcfg}
+\end{figure}
+
+如果在{\tt henvcfg}中将位FIOM (I/O的Fence意味着内存)设置为1，那么当V=1时执行的Fence指令将被修改，
+因此对设备I/O的访问顺序要求也意味着对主存访问顺序的要求。表~\ref{tab:henvcfg-FIOM}详细描述了FIOM=1和V=1时FENCE指令位PI、PO、SI和SO的修改解释。
+% If bit FIOM (Fence of I/O implies Memory) is set to one in
+% {\tt henvcfg}, FENCE instructions executed when V=1 are modified
+% so the requirement to order accesses to device I/O implies also the
+% requirement to order main memory accesses.
+% Table~\ref{tab:henvcfg-FIOM} details the modified interpretation of
+% FENCE instruction bits PI, PO, SI, and SO when FIOM=1 and V=1.
+
+类似地，当FIOM=1和V=1时，如果访问作为设备I/O排序的区域的原子指令有它的{\em aq}和/或{\em rl}位设置，
+那么该指令的排序就像它访问设备I/O和内存一样。
+% Similarly, when FIOM=1 and V=1,
+% if an atomic instruction that accesses a region ordered as device I/O
+% has its {\em aq} and/or {\em rl} bit set, then that instruction is ordered
+% as though it accesses both device I/O and memory.
+
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{|c|l|}
+\hline
+Instruction bit & Meaning when set \\
+\hline
+PI & Predecessor device input and memory reads   (PR implied) \\
+PO & Predecessor device output and memory writes (PW implied) \\
+\hline
+SI & Successor device input and memory reads     (SR implied) \\
+SO & Successor device output and memory writes   (SW implied) \\
+\hline
+\end{tabular}
+\end{center}
+\vspace{-0.1in}
+\caption{%
+修改了FIOM=1和虚拟模式V=1时的FENCE前集合和后集合的解释。
+% Modified interpretation of FENCE predecessor and successor sets when
+% FIOM=1 and virtualization mode V=1.%
+}
+\label{tab:henvcfg-FIOM}
+\end{table}
+
+PBMTE位控制Svpbmt扩展是否可用于VS级地址转换。当PBMTE=1时，Svpbmt可用于VS级地址转换。
+当PBMTE=0时，实现行为就好像Svpbmt没有实现VS阶段地址转换。如果没有实现Svpbmt，则PBMTE为只读零。
+% The PBMTE bit controls whether the Svpbmt extension is available for use in
+% VS-stage address translation.
+% When PBMTE=1, Svpbmt is available for VS-stage address translation.
+% When PBMTE=0, the implementation behaves as though Svpbmt were not implemented
+% for VS-stage address translation.
+% If Svpbmt is not implemented, PBMTE is read-only zero.
+
+STCE字段的定义将由即将到来的Sstc扩展提供。它在{\tt henvcfg}中的分配可能在该扩展批准之前发生变化。
+% The definition of the STCE field will be furnished by the
+% forthcoming Sstc extension.
+% Its allocation within {\tt henvcfg} may change prior to the ratification
+% of that extension.
+
+CBZE字段的定义将由即将到来的Zicboz扩展提供。它在{\tt henvcfg}中的分配可能在该扩展批准之前发生变化。
+% The definition of the CBZE field will be furnished by the
+% forthcoming Zicboz extension.
+% Its allocation within {\tt henvcfg} may change prior to the ratification
+% of that extension.
+
+CBCFE和CBIE字段的定义将由即将到来的Zicbom扩展提供。它们在{\tt henvcfg}内的分配可能在批准该扩展之前发生变化。
+% The definitions of the CBCFE and CBIE fields will be furnished by the
+% forthcoming Zicbom extension.
+% Their allocations within {\tt henvcfg} may change prior to the ratification
+% of that extension.
+
+当HSXLEN=32时，{\tt henvcfg}包含与HSXLEN=64时{\tt henvcfg}的31:0位相同的字段。
+此外，当HSXLEN=32时，{\tt henvcfgh}是一个32位的读/写寄存器，它包含与HSXLEN=64时{\tt henvcfg}的63:32位相同的字段。
+HSXLEN=64时，寄存器{\tt henvcfgh}不存在。
+% When HSXLEN=32, {\tt henvcfg} contains the same fields as bits 31:0
+% of {\tt henvcfg} when HSXLEN=64.
+% Additionally, when HSXLEN=32, {\tt henvcfgh} is a 32-bit read/write register that
+% contains the same fields as bits 63:32 of {\tt henvcfg} when
+% HSXLEN=64.
+% Register {\tt henvcfgh} does not exist when HSXLEN=64.
+
+\subsection{超级监管器计数器使能寄存器 （{\tt hcounteren}）
+%Hypervisor Counter-Enable Register ({\tt hcounteren})
+}
+
+计数器使能寄存器{\tt hcounteren}是一个32位寄存器，它控制硬件性能监视计数器对宾客虚拟机的可用性。
+% The counter-enable register {\tt hcounteren} is a 32-bit register that
+% controls the availability of the hardware performance monitoring counters
+% to the guest virtual machine.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{cccMcccccc}
+\instbit{31} &
+\instbit{30} &
+\instbit{29} &
+\instbitrange{28}{6} &
+\instbit{5} &
+\instbit{4} &
+\instbit{3} &
+\instbit{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{HPM31} &
+\multicolumn{1}{c|}{HPM30} &
+\multicolumn{1}{c|}{HPM29} &
+\multicolumn{1}{c|}{...} &
+\multicolumn{1}{c|}{HPM5} &
+\multicolumn{1}{c|}{HPM4} &
+\multicolumn{1}{c|}{HPM3} &
+\multicolumn{1}{c|}{IR} &
+\multicolumn{1}{c|}{TM} &
+\multicolumn{1}{c|}{CY} \\
+\hline
+1 & 1 & 1 & 23 & 1 & 1 & 1 & 1 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器计数器使能寄存器（{\tt hcounteren}）
+% Hypervisor counter-enable register ({\tt hcounteren}).
+}
+\label{hcounteren}
+\end{figure*}
+
+当{\tt hcounteren}寄存器中的CY、TM、IR或HPM{\em n}位为空时，当V=1时试图读取{\tt cycle}、{\tt time}、{\tt instret}或{\tt hpmcounter}{\em n}寄存器时，
+如果{\tt mcounteren}中的同一位为1，则将导致虚拟指令异常。当这些位中的一个被设置，当V=1时，访问相应的寄存器是被允许的，
+除非有其他原因阻止。在VU模式下，除非在{\tt hcounteren}和{\tt scounteren}中同时设置了适用的位，否则计数器是不可读的。
+% When the CY, TM, IR, or HPM{\em n} bit in the {\tt hcounteren} register
+% is clear, attempts to read the {\tt cycle}, {\tt time}, {\tt instret}, or
+% {\tt hpmcounter}{\em n} register while V=1 will cause a virtual
+% instruction exception if the same bit in {\tt mcounteren} is~1.
+% When one of these bits is set, access to the corresponding register is
+% permitted when V=1, unless prevented for some other reason.
+% In VU-mode, a counter is not readable unless the applicable bits are set
+% in both {\tt hcounteren} and {\tt scounteren}.
+
+{\tt hcounteren}必须执行。然而，任何位都可能是只读零，这表明当V=1时，对相应计数器的读取将导致异常。
+因此，它们是有效的\warl\ 字段。
+% {\tt hcounteren} must be implemented.
+% However, any of the bits may be read-only zero,
+% indicating reads to the corresponding counter will cause an exception
+% when V=1.
+% Hence, they are effectively \warl\ fields.
+
+\subsection{超级监管器时间偏移（Delta）寄存器（{\tt htimedelta}， {\tt htimedeltah}）
+  % Hypervisor Time Delta Registers ({\tt htimedelta}, {\tt htimedeltah})
+  }
+
+{\tt htimedelta} CSR是一个读/写寄存器，它包含{\tt time} CSR的值与vs模式或vu模式下返回值之间的差值。
+也就是说，在VS或VU模式下读取{\tt time} CSR将返回{\tt htimedelta}的内容和{\tt time}的实际值之和。
+% The {\tt htimedelta} CSR is a read/write register that contains the delta
+% between the value of the {\tt time} CSR and the value returned in VS-mode or
+% VU-mode.
+% That is, reading the {\tt time} CSR in VS or VU mode returns the sum of the
+% contents of {\tt htimedelta} and the actual value of {\tt time}.
+
+\begin{commentary}
+  因为在计算{\tt htimedelta}和{\tt time}时，会忽略overflow，所以可以使用{\tt htimedelta}的大值来表示负的时间偏移量。
+% Because overflow is ignored when summing {\tt htimedelta} and {\tt time},
+% large values of {\tt htimedelta} may be used to represent negative time
+% offsets.
+\end{commentary}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{63}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt htimedelta} \\
+\hline
+64 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{ 超级监管器时间偏移（Delta）寄存器，HSXLEN=64
+% Hypervisor time delta register, HSXLEN=64.
+}
+\label{hdeltareg}
+\end{figure*}
+
+仅对于HSXLEN=32， {\tt htimedelta}保存增量的下32位，{\tt htimedeltah}保存增量的上32位。
+% For HSXLEN=32 only, {\tt htimedelta} holds the lower 32 bits of the
+% delta, and {\tt htimedeltah} holds the upper 32 bits of the delta.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{31}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt htimedelta} \\
+\hline
+\multicolumn{1}{|c|}{\tt htimedeltah} \\
+\hline
+32 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器时间偏移寄存器，HSXLEN=32。
+% Hypervisor time delta registers, HSXLEN=32.
+}
+\label{hdeltahreg}
+\end{figure*}
+
+\subsection{超级监管器陷入值寄存器（{\tt htval}）}
+% \subsection{Hypervisor Trap Value Register ({\tt htval})}
+
+{\tt htval}寄存器是一个HSXLEN-bit的读/写寄存器，其格式如图~\ref{htvalreg}所示。
+当一个陷入进入HS模式时，{\tt htval}与{\tt stval}一起被写入额外的特定于异常的信息，以协助软件处理该陷入。
+% The {\tt htval} register is an HSXLEN-bit read/write register formatted
+% as shown in Figure~\ref{htvalreg}.
+% When a trap is taken into HS-mode, {\tt htval} is written with additional
+% exception-specific information, alongside {\tt stval}, to assist software
+% in handling the trap.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt htval} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器陷入值寄存器（{\tt htval}）。
+  % Hypervisor trap value register ({\tt htval}).
+  }
+\label{htvalreg}
+\end{figure*}
+
+当客户页面错误陷入进入HS模式时，{\tt htval}用零或出错的客户物理地址右移2位写入。
+对于其他的陷入，{\tt htval}被设置为零，但是未来的标准或扩展可能会为其他的陷阱重新定义{\tt htval}的设置。
+% When a guest-page-fault trap is taken into HS-mode, {\tt htval} is
+% written with either zero or the guest physical address that faulted,
+% shifted right by 2~bits.
+% For other traps, {\tt htval} is set to zero, but a future standard or
+% extension may redefine {\tt htval}'s setting for other traps.
+
+宾客页错误可能是由于在第一阶段(VS阶段)地址翻译期间的隐式内存访问而引起的，
+在这种情况下，写入{\tt htval}的宾客物理地址就是发生错误的隐式内存访问的地址——例如，无法读取的VS级页表项的地址。
+(当VS阶段翻译失败时，与原始虚拟地址对应的来宾物理地址是未知的。)CSR {\tt htinst}中提供了其他信息来消除这种情况的歧义。
+% A guest-page fault may arise due to an implicit memory access during
+% first-stage (VS-stage) address translation, in which case a guest
+% physical address written to {\tt htval} is that of the implicit memory
+% access that faulted---for example, the address of a VS-level page table
+% entry that could not be read.
+% (The guest physical address corresponding to the original virtual address
+% is unknown when VS-stage translation fails to complete.)
+% Additional information is provided in CSR {\tt htinst} to disambiguate
+% such situations.
+
+否则，对于导致来宾页面错误的加载和存储错误，{\tt htval}中的非零宾客物理地址对应于由{\tt stval}中的虚拟地址指示的访问错误部分。
+对于具有变长指令的系统上的指令宾客页面错误，非零{\tt htval}对应于由{\tt stval}中的虚拟地址表示的指令的错误部分。
+% Otherwise, for misaligned loads and stores that cause guest-page faults,
+% a nonzero guest physical address in {\tt htval} corresponds to the
+% faulting portion of the access as indicated by the virtual address in
+% {\tt stval}.
+% For instruction guest-page faults on systems with variable-length
+% instructions, a nonzero {\tt htval} corresponds to the faulting portion
+% of the instruction as indicated by the virtual address in {\tt stval}.
+
+\begin{commentary}
+  写入{\tt htval}的宾客物理地址右移2位，以容纳比当前XLEN更宽的地址。
+  对于RV32，超级管理器拓展允许宾客物理地址宽至34位，{\tt htval}报告地址的第33:2位。
+  宾客物理地址的这种按2移位编码与PMP地址寄存器(第~\ref{sec: PMP}节)
+  和页表条目(第\ref{sec:sv32}节，第\ref{sec:sv39}节，第\ref{sec:sv48}节和第~\ref{sec:sv57}节)中的物理地址编码相匹配。
+% A guest physical address written to {\tt htval} is shifted right by
+% 2~bits to accommodate addresses wider than the current XLEN.
+% For RV32, the hypervisor extension permits guest physical addresses as
+% wide as 34 bits, and {\tt htval} reports bits 33:2 of the address.
+% This shift-by-2 encoding of guest physical addresses matches the encoding
+% of physical addresses in PMP address registers (Section~\ref{sec:pmp})
+% and in page table entries (Sections \ref{sec:sv32}, \ref{sec:sv39},
+% \ref{sec:sv48}, and~\ref{sec:sv57}).
+
+如果需要出现故障的宾客物理地址的最低有效位的两个位，这些位通常与{\tt stval}中出错的虚拟地址的最低有效位的两个位相同。
+对于由于VS阶段地址翻译的隐式内存访问而导致的错误，最低有效位的两位改为零。可以使用寄存器{\tt htinst}中提供的值来区分这些情况。
+% If the least-significant two bits of a faulting guest physical address
+% are needed, these bits are ordinarily the same as the least-significant
+% two bits of the faulting virtual address in {\tt stval}.
+% For faults due to implicit memory accesses for VS-stage address
+% translation, the least-significant two bits are instead zeros.
+% These cases can be distinguished using the value provided in register
+% {\tt htinst}.
+\end{commentary}
+
+{\tt htval}是一个\warl\ 寄存器，它必须能够容纳零，并且可能只能容纳其他2位移位的宾客物理地址的任意子集(如果有的话)。
+% {\tt htval} is a \warl\ register that must be able to hold zero and may
+% be capable of holding only an arbitrary subset of other 2-bit-shifted
+% guest physical addresses, if any.
+
+\begin{commentary}
+  除非有其他理由假设(例如平台标准)，将值写入{\tt htval}的软件应该从{\tt htval}回读以确认存储的值。
+% Unless it has reason to assume otherwise (such as a platform standard),
+% software that writes a value to {\tt htval} should read back from
+% {\tt htval} to confirm the stored value.
+\end{commentary}
+
+\subsection{超级监管器陷入指令寄存器（{\tt htinst}）}
+% \subsection{Hypervisor Trap Instruction Register ({\tt htinst})}
+
+{\tt htinst}寄存器是一个HSXLEN-bit的读/写寄存器，其格式如图~\ref{htinstreg}所示。
+当一个陷入进入HS模式时，{\tt htinst}被写入一个值，如果该值非零，则提供发生陷入指令的信息，
+以协助软件处理该陷入。在发生陷入时，可能写入{\tt htinst}的值记录在第~\ref{sec:tinst-vals}节中。
+% The {\tt htinst} register is an HSXLEN-bit read/write register formatted
+% as shown in Figure~\ref{htinstreg}.
+% When a trap is taken into HS-mode, {\tt htinst} is written with a value
+% that, if nonzero, provides information about the instruction that
+% trapped, to assist software in handling the trap.
+% The values that may be written to {\tt htinst} on a trap are documented
+% in Section~\ref{sec:tinst-vals}.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{HSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt htinst} \\
+\hline
+HSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{超级监管器陷入指令寄存器（{\tt htinst}）。
+%  Hypervisor trap instruction register ({\tt htinst}).
+ }
+\label{htinstreg}
+\end{figure*}
+
+{\tt htinst}是一个\warl\ 寄存器，它只需要能够保存在实现中可能在发生陷入时自动写入它的值。
+% {\tt htinst} is a \warl\ register that need only be able to hold the
+% values that the implementation may automatically write to it on a trap.
+
+\subsection{超级监管器宾客地址翻译和保护寄存器（{\tt hgatp}）
+  % Hypervisor Guest Address Translation and Protection Register ({\tt hgatp})
+  }
+\label{sec:hgatp}
+
+{\tt hgatp}寄存器是一个HSXLEN位读/写寄存器，其HSXLEN=32格式如图~\ref{rv32hgatp}所示，
+其HSXLEN=64格式如图~\ref{rv64hgatp}所示。它控制G阶段地址翻译和保护--宾客虚拟地址两阶段翻译的第二个阶段（见第~\ref{sec:two-stage-translation}节）。
+% The {\tt hgatp} register is an HSXLEN-bit read/write register, formatted as
+% shown in Figure~\ref{rv32hgatp} for HSXLEN=32 and Figure~\ref{rv64hgatp} for
+% HSXLEN=64, which controls G-stage address translation and protection, the
+% second stage of two-stage translation for guest virtual addresses (see
+% Section~\ref{sec:two-stage-translation}).
+类似于{\tt satp}控制状态寄存器，这个寄存器保存了宾客物理根页表的物理页号（PPN）；一个虚拟机标识符（VMID），
+它在每虚拟机（per-virtual-machine）的基础上提供地址翻译屏障。
+Similar to CSR {\tt satp}, this register holds the physical page number (PPN)
+of the guest-physical root page table; a virtual machine identifier (VMID),
+which facilitates address-translation fences on a per-virtual-machine basis;
+and the MODE field, which selects the address-translation scheme for guest
+physical addresses.
+当{\tt mstatus}.TVM=1时，在HS模式下试图去读或写{\tt hgatp}会引起一个非法指令异常。
+% When {\tt mstatus}.TVM=1, attempts to read or write {\tt hgatp} while executing
+% in HS-mode will raise an illegal instruction exception.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{cY@{}E@{}K}
+\instbit{31} &
+\instbitrange{30}{29} &
+\instbitrange{28}{22} &
+\instbitrange{21}{0} \\
+\hline
+\multicolumn{1}{|c|}{MODE} &
+\multicolumn{1}{c|}{0 (\warl)} &
+\multicolumn{1}{c|}{VMID (\warl)} &
+\multicolumn{1}{c|}{PPN  (\warl)} \\
+\hline
+1 & 2 & 7 & 22 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当HSXLEN=32时，超级监管器宾客地址翻译和保护寄存器{\tt hgatp}
+%   Hypervisor guest address translation and protection register
+% {\tt hgatp} when HSXLEN=32.
+}
+\label{rv32hgatp}
+\end{figure}
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}S@{}Y@{}E@{}K}
+\instbitrange{63}{60} &
+\instbitrange{59}{58} &
+\instbitrange{57}{44} &
+\instbitrange{43}{0} \\
+\hline
+\multicolumn{1}{|c|}{MODE (\warl)} &
+\multicolumn{1}{c|}{0 (\warl)} &
+\multicolumn{1}{c|}{VMID (\warl)} &
+\multicolumn{1}{c|}{PPN  (\warl)} \\
+\hline
+4 & 2 & 14 & 44 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{ 当HSXLEN=64时，模式值可能为裸机、Sv39x4、Sv48x4、Sv57x4的，模式超级监管器宾客地址翻译和保护寄存器{\tt hgatp}
+%   Hypervisor guest address translation and protection register
+% {\tt hgatp} when HSXLEN=64, for MODE values Bare, Sv39x4, Sv48x4, and Sv57x4.
+}
+\label{rv64hgatp}
+\end{figure}
+
+表~\ref{tab:hgatp-mode}展示了，当HSXLEN=32和HSXLEN=64时，MODE域的编码。
+% Table~\ref{tab:hgatp-mode} shows the encodings of the MODE field when HSXLEN=32 and
+% HSXLEN=64.
+当MODE=Bare时，宾客物理地址与监管级物理地址一致。并且，对于一个宾客虚拟机也无需用超过物理内存保护方案（在第~\ref{sec:pmp}节描述）去保护内存。
+在这种情况下，{\tt hgatp}的剩余域必须被设置为0。
+% When MODE=Bare, guest physical addresses are equal to supervisor physical
+% addresses, and there is no further memory protection for a guest virtual
+% machine beyond the physical memory protection scheme described in
+% Section~\ref{sec:pmp}.
+% In this case, the remaining fields in {\tt hgatp} must be set to zeros.
+
+当HSXLEN=32时，MODE的唯一值是Sv32x4。Sv32x4是平常的Sv32页虚拟内存方案的修改版，其拓展支持了34位宾客物理地址。
+当HSXLEN=64使，Sv39x4，Sv48x4，和Sv57x4被定义为Sv39，Sv48，和Sv57页虚拟内存方案的修改版。
+所有这些页虚拟内存方案在第~\ref{sec:guest-addr-translation}节描述。
+% When HSXLEN=32, the only other valid setting for MODE is Sv32x4, which is a
+% modification of the usual Sv32 paged virtual-memory scheme, extended to support
+% 34-bit guest physical addresses.
+% When HSXLEN=64, modes Sv39x4, Sv48x4, and Sv57x4 are defined as modifications of the
+% Sv39, Sv48, and Sv57 paged virtual-memory schemes.
+% All of these paged virtual-memory schemes are described in
+% Section~\ref{sec:guest-addr-translation}.
+
+HSXLEN=64下剩余的MODE设置为将来使用所保留，可能在{\tt hgatp}的其他域中定义不同的解释。
+% The remaining MODE settings when HSXLEN=64 are reserved for future use and may define
+% different interpretations of the other fields in {\tt hgatp}.
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{|c|c|l|}
+\hline
+\multicolumn{3}{|c|}{HSXLEN=32} \\
+\hline
+Value  & Name & Description \\
+\hline
+0      & Bare   & No translation or protection. \\
+1      & Sv32x4 & Page-based 34-bit virtual addressing (2-bit extension of Sv32). \\
+\hline \hline
+\multicolumn{3}{|c|}{HSXLEN=64} \\
+\hline
+Value  & Name & Description \\
+\hline
+0      & Bare   & No translation or protection. \\
+1--7   & ---    & {\em Reserved} \\
+8      & Sv39x4 & Page-based 41-bit virtual addressing (2-bit extension of Sv39). \\
+9      & Sv48x4 & Page-based 50-bit virtual addressing (2-bit extension of Sv48). \\
+10     & Sv57x4 & Page-based 59-bit virtual addressing (2-bit extension of Sv57). \\
+11--15 & ---    & {\em Reserved} \\
+\hline
+\end{tabular}
+\end{center}
+\caption{{\tt hgatp}中MODE域的编码。}
+\label{tab:hgatp-mode}
+\end{table}
+
+当HSXLEN=64时，不需要去实现所有定义的所有MODE设定。
+% Implementations are not required to support all defined MODE
+% settings when HSXLEN=64.
+
+带有不支持MODE值的对{\tt hgatp}的写操作不会像{\tt satp}一样将其忽略。
+而是，{\tt hgatp}在正常
+A write to {\tt hgatp} with an unsupported MODE value is not ignored as it is
+for {\tt satp}.
+Instead, the fields of {\tt hgatp} are {\warl} in the normal way, when so
+indicated.
+
+就像第~\ref{sec:guest-addr-translation}节解释的那样，对于分页虚拟机策略（Sv32x4，Sv39x4，Sv48x4，和Sv57x4），
+根页表的大小是16KiB，而且必须16KiB对齐。在这种模式下，{\tt hgatp}中的物理页号（PPN）的最低两位总是可读的零。
+仅支持定义的分页虚拟内存方案和/或裸机的实现可能使PPN[1:0]成为只读的零。
+% As explained in Section~\ref{sec:guest-addr-translation}, for the paged
+% virtual-memory schemes (Sv32x4, Sv39x4, Sv48x4, and Sv57x4), the root page table is
+% 16~KiB and must be aligned to a 16-KiB boundary.
+% In these modes, the lowest two bits of the physical page number (PPN) in
+% {\tt hgatp} always read as zeros.
+% An implementation that supports only the defined paged virtual-memory schemes
+% and/or Bare may make PPN[1:0] read-only zero.
+
+VMID位数是\unspecified\ ，并且可能是零。通过向VMID域中每一位写入1，然后再从{\tt hgatp}中读出，
+查看VMID域中哪些位保持1，可以决定VMID被实现的位数（用术语{\mbox {\em VMIDLEN}}表示）。
+% The number of VMID bits is \unspecified\ and may be zero.
+% The number of implemented VMID bits, termed {\mbox {\em VMIDLEN}}, may be
+% determined by writing one to every bit position in the VMID field, then reading
+% back the value in {\tt hgatp} to see which bit positions in the VMID field hold
+% a one.
+VMID的最低位被最先实现：这就意味着，如果VMIDLEN~$>$~0，VMID[VMIDLEN-1:0]是可写的。
+VMIDLEN的最大值（用术语VMIDAX表示）是Sv32x4的7或Sv39x4，Sv48x4，和Sv57x4的14。
+The least-significant bits of VMID are implemented first:
+that is, if VMIDLEN~$>$~0, VMID[VMIDLEN-1:0] is writable.
+The maximal value of VMIDLEN, termed VMIDMAX, is 7 for Sv32x4 or 14 for Sv39x4,
+Sv48x4, and Sv57x4.
+
+为了地址翻译算法的目的，{\tt hgatp}寄存器被认为是{\em 活跃的}，除非有效的权限模式是U并且{\tt hstatus}.HU=0。
+The {\tt hgatp} register is considered {\em active} for the purposes of the
+address-translation algorithm {\em unless} the effective privilege mode is U
+and {\tt hstatus}.HU=0.
+
+\begin{commentary}
+  这个定义简化了HLV，HLVX，和HSV指令推测执行的实现。
+% This definition simplifies the implementation of speculative execution of
+% HLV, HLVX, and HSV instructions.
+\end{commentary}
+
+注意，在页表更新和随后的G阶段地址翻译之间，写{\tt hgatp}并不会暗示任何顺序约束。
+如果新的虚拟机的宾客物理地址已经被修改了，或者一个VMID被使用，必须在写{\tt hgatp}之前或之后
+执行HFENCE.GVMA指令（见第~\ref{sec:hfence.vma}章）。
+
+% Note that writing {\tt hgatp} does not imply any ordering constraints between
+% page-table updates and subsequent G-stage address translations.
+% If the new virtual machine's guest physical page tables have been modified,
+% or if a VMID is reused,
+% it may be necessary to execute an HFENCE.GVMA instruction
+% (see Section~\ref{sec:hfence.vma}) before or after writing {\tt hgatp}.
+
+\subsection{虚拟监管级状态寄存器 （{\tt vsstatus}）}
+% \subsection{Virtual Supervisor Status Register ({\tt vsstatus})}
+
+{\tt vsstatus}寄存器是一个VSXLEN位的读/写寄存器，是{\tt sstatus}在VS模式下的版本，
+当VSXLEN=32时，其格式如图~\ref{vsstatusreg-rv32}所示，当VSXLEN=64时，其格式如图~\ref{vsstatusreg}所示。
+当V=1时，{\tt vsstatus}代替{\tt sstatus}，所以平时读或修改{\tt sstatus}的指令实际上会访问{\tt vsstatus}。
+% The {\tt vsstatus} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt sstatus}, formatted as
+% shown in Figure~\ref{vsstatusreg-rv32} when VSXLEN=32 and
+% Figure~\ref{vsstatusreg} when VSXLEN=64.
+% When V=1, {\tt vsstatus} substitutes for the usual {\tt sstatus}, so
+% instructions that normally read or modify {\tt sstatus} actually access
+% {\tt vsstatus} instead.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{cEcccc}
+\\
+\instbit{31} &
+\instbitrange{30}{20} &
+\instbit{19} &
+\instbit{18} &
+\instbit{17} &
+ \\
+\hline
+\multicolumn{1}{|c|}{SD} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{MXR} &
+\multicolumn{1}{c|}{SUM} &
+\multicolumn{1}{c|}{\wpri} &
+ \\
+\hline
+1 & 11 & 1 & 1 & 1 & \\
+\end{tabular}
+\begin{tabular}{cWWWWccccWcc}
+\\
+&
+\instbitrange{16}{15} &
+\instbitrange{14}{13} &
+\instbitrange{12}{11} &
+\instbitrange{10}{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbitrange{4}{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+ &
+\multicolumn{1}{|c|}{XS[1:0]} &
+\multicolumn{1}{c|}{FS[1:0]} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{VS[1:0]} &
+\multicolumn{1}{c|}{SPP} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{UBE} &
+\multicolumn{1}{c|}{SPIE} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{SIE} &
+\multicolumn{1}{c|}{\wpri} \\
+\hline
+ & 2 & 2 & 2 & 2 & 1 & 1 & 1 & 1 & 3 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当VSXLEN=32时，虚拟监管级状态寄存器（{\tt vsstatus}） 
+% Virtual supervisor status register ({\tt vsstatus}) when VSXLEN=32.
+}
+\label{vsstatusreg-rv32}
+\end{figure*}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{cMFScccc}
+\\
+\instbit{VSXLEN-1} &
+\instbitrange{VSXLEN-2}{34} &
+\instbitrange{33}{32} &
+\instbitrange{31}{20} &
+\instbit{19} &
+\instbit{18} &
+\instbit{17} &
+ \\
+\hline
+\multicolumn{1}{|c|}{SD} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{UXL[1:0]} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{MXR} &
+\multicolumn{1}{c|}{SUM} &
+\multicolumn{1}{c|}{\wpri} &
+ \\
+\hline
+1 & VSXLEN-35 & 2 & 12 & 1 & 1 & 1 & \\
+\end{tabular}
+\begin{tabular}{cWWWWccccWcc}
+\\
+&
+\instbitrange{16}{15} &
+\instbitrange{14}{13} &
+\instbitrange{12}{11} &
+\instbitrange{10}{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbitrange{4}{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+ &
+\multicolumn{1}{|c|}{XS[1:0]} &
+\multicolumn{1}{c|}{FS[1:0]} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{VS[1:0]} &
+\multicolumn{1}{c|}{SPP} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{UBE} &
+\multicolumn{1}{c|}{SPIE} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{SIE} &
+\multicolumn{1}{c|}{\wpri} \\
+\hline
+ & 2 & 2 & 2 & 2 & 1 & 1 & 1 & 1 & 3 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当VSXLEN=64时，虚拟监管级状态寄存器（{\tt vsstatus}）  
+% Virtual supervisor status register ({\tt vsstatus}) when VSXLEN=64.
+}
+\label{vsstatusreg}
+\end{figure*}
+
+UXL域控制VU模式下有效的XLEN，它可能不同于VS模式下的XLEN（VSXLEN）。
+当VSXLEN=32时，UXL域不会存在，并且VU模式的XLEN=32。
+当VSXLEN=64时，UXL是一个\warl\ 域，其编码方式与{\tt misa}的MXL域相同，如在~\pageref{misabase}的表~\ref{misabase}所示。
+特别地，一种实现可能让UXL是{\tt hstatus}VSXL域的只读副本，强制使VU模式的XLEN=VSXLEN。
+% The UXL field controls the effective XLEN for VU-mode, which may differ
+% from the XLEN for VS-mode (VSXLEN).
+% When VSXLEN=32, the UXL field does not exist, and VU-mode XLEN=32.
+% When VSXLEN=64, UXL is a \warl\ field that is encoded the same as the MXL
+% field of {\tt misa}, shown in Table~\ref{misabase} on
+% page~\pageref{misabase}.
+% In particular, an implementation may make UXL be a read-only copy of
+% field VSXL of {\tt hstatus}, forcing VU-mode XLEN=VSXLEN.
+
+如果VSXLEN从32位变为一个更宽的宽度，并且如果UXL域并没有被限制成一个单一的值，那么UXL域会得到一个不超过这个新的VSXLEN的支持的最宽的长度。
+% If VSXLEN is changed from 32 to a wider width, and if field UXL is not
+% restricted to a single value, it gets the value corresponding to the
+% widest supported width not wider than the new VSXLEN.
+
+当V=1时，{\tt vsstatus}.FS和HS级的{\tt sstatus}.FS是同时有效的。
+当它们同时为0（关闭）时，试图执行一个浮点指令会引发一个非法指令异常。
+当V=1时修改浮点状态会引起它们都被设置为3（脏的）（译者注：）
+% When V=1, both {\tt vsstatus}.FS and the HS-level {\tt sstatus}.FS are in
+% effect.  Attempts
+% to execute a floating-point instruction when either field is 0 (Off) raise an
+% illegal-instruction exception.  Modifying the floating-point state when V=1
+% causes both fields to be set to 3 (Dirty).
+
+\begin{commentary}
+  对于一个受益于the extension context status的超级监管器来说，它必须有在HS级{\tt sstatus}的副本，
+  使其能够维持VS模式下独立的运行一个宾客操作系统。
+% For a hypervisor to benefit from the extension context status, it must
+% have its own copy in the HS-level {\tt sstatus}, maintained independently
+% of a guest OS running in VS-mode.
+
+While a version of the extension context status obviously must exist in
+{\tt vsstatus} for VS-mode, a hypervisor cannot rely on this version
+being maintained correctly, given that VS-level software can change
+{\tt vsstatus}.FS arbitrarily.
+If the HS-level {\tt sstatus}.FS were not independently active and
+maintained by the hardware in parallel with {\tt vsstatus}.FS while V=1,
+hypervisors would always be forced to conservatively swap all
+floating-point state when context-switching between virtual machines.
+\end{commentary}
+
+类似地，当V=1时，{\tt vsstatus}.VS和HS级的{\tt sstatus}.VS同时有效。
+当它们同时为0（关闭）时，试图执行一个向量指令会引发一个非法指令异常。
+当V=1时修改浮点状态会引起它们都被设置为3（脏的）
+% Similarly, when V=1, both {\tt vsstatus}.VS and the HS-level {\tt sstatus}.VS
+% are in effect.
+% Attempts to execute a vector instruction when either field is 0 (Off) raise an
+% illegal-instruction exception.
+% Modifying the vector state when V=1 causes both fields to be set to 3 (Dirty).
+
+只读域SD和XS总结了the extension context status，因为它只对VS模式可见。
+例如：HS级{\tt sstatus}.FS的值不会影响{\tt vsstatus}.SD的值。
+% Read-only fields SD and XS summarize the extension context status as it
+% is visible to VS-mode only.
+% For example, the value of the HS-level {\tt sstatus}.FS does not affect
+% {\tt vsstatus}.SD.
+
+一种实现可能会让UBE域是{\tt hstatus}.VSBE的只读副本。
+% An implementation may make field UBE be a read-only copy of
+% {\tt hstatus}.VSBE.
+
+当V=0时，{\tt vsstatus}不会直接影响机器的行为，除非一个虚拟机加载/存储（HLV, HLVX, or HSV）或
+{\tt mstatus}寄存器的MPRV特性被用来执行一个加载或者存储（就像V=1一般）。
+% When V=0, {\tt vsstatus} does not directly affect the behavior of the machine,
+% unless a virtual-machine load/store (HLV, HLVX, or HSV)
+% or the MPRV feature in the {\tt mstatus}
+% register is used to execute a load or store
+% {\em as though} V=1.
+
+\subsection{虚拟监管级中断寄存器（{\tt vsip}和{\tt vsie}）}
+% \subsection{Virtual Supervisor Interrupt Registers ({\tt vsip} and {\tt vsie})}
+
+{\tt vsip}和{\tt vsie}寄存器是VSXLEN位读/写寄存器，它是监管级CSR{\tt sip}和{\tt sie}的VS模式的版本，其格式分别如图\ref{vsipreg}和\ref{vsiereg}所示。
+当V=1时，{\tt vsip}和{\tt vsie}代替了通常的{\tt sip}和{\tt sie}，所以通常读或修改{\tt sip}/{\tt sie}的指令实际上会访问{\tt vsip}/{\tt vsie}。
+然而，当V=1时，指向HS级的中断继续在HS级{\tt sip}寄存器中指示，而不是在{\tt vsip}中指示。
+% The {\tt vsip} and {\tt vsie} registers are VSXLEN-bit read/write
+% registers that are VS-mode's versions of supervisor CSRs {\tt sip} and
+% {\tt sie}, formatted as shown in Figures \ref{vsipreg} and \ref{vsiereg}
+% respectively.
+% When V=1, {\tt vsip} and {\tt vsie} substitute for the usual {\tt sip}
+% and {\tt sie}, so instructions that normally read or modify
+% {\tt sip}/{\tt sie} actually access {\tt vsip}/{\tt vsie} instead.
+% However, interrupts directed to HS-level continue to be
+% indicated in the HS-level {\tt sip} register, not in {\tt vsip}, when
+% V=1.
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{VSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{Interrupts (\warl)} \\
+\hline
+VSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟监管级中断等待寄存器（{\tt vsip}）。
+  % Virtual supervisor interrupt-pending register ({\tt vsip}).
+  }
+\label{vsipreg}
+\end{figure}
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{VSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{Interrupts (\warl)} \\
+\hline
+VSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟监管级中断使能寄存器（{\tt vsie}）。
+  % Virtual supervisor interrupt-enable register ({\tt vsie}).
+  }
+\label{vsiereg}
+\end{figure}
+
+{\tt vsip}和{\tt vsie}寄存器的标准部分（0-15位）的格式分别如图\ref{vsipreg-standard}和图\ref{vsiereg-standard}所示。
+% The standard portions (bits 15:0) of registers {\tt vsip} and {\tt vsie}
+% are formatted as shown in Figures \ref{vsipreg-standard} and
+% \ref{vsiereg-standard} respectively.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ScFcFcc}
+\instbitrange{15}{10} &
+\instbit{9} &
+\instbitrange{8}{6} &
+\instbit{5} &
+\instbitrange{4}{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{SEIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{STIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{SSIP} &
+\multicolumn{1}{c|}{0} \\
+\hline
+6 & 1 & 3 & 1 & 3 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{{\tt vsip}的标准部分（0-15位）。
+  % Standard portion (bits 15:0) of {\tt vsip}.
+  }
+\label{vsipreg-standard}
+\end{figure*}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{ScFcFcc}
+\instbitrange{15}{10} &
+\instbit{9} &
+\instbitrange{8}{6} &
+\instbit{5} &
+\instbitrange{4}{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{SEIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{STIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{SSIE} &
+\multicolumn{1}{c|}{0} \\
+\hline
+6 & 1 & 3 & 1 & 3 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{{\tt vsie}的标准部分（0-15位）。
+  % Standard portion (bits 15:0) of {\tt vsie}.
+  }
+\label{vsiereg-standard}
+\end{figure*}
+
+当{\tt hideleg}的第10位为零时，{\tt vsip}.SEIP和{\tt vsie}.SEIE是只读零。
+其他时候，{\tt vsip}.SEIP和{\tt vsie}.SEIE是{\tt hip}和{\tt hie}.vseie的别名。
+% When bit 10 of {\tt hideleg} is zero, {\tt vsip}.SEIP and {\tt vsie}.SEIE
+% are read-only zeros.
+% Else, {\tt vsip}.SEIP and {\tt vsie}.SEIE are aliases of {\tt hip}.VSEIP
+% and {\tt hie}.VSEIE.
+
+当{\tt hideleg}的第6位为零时，{\tt vsip}.STIP和{\tt vsie}.STIE是只读零。
+其他时候，{\tt vsip}.STIP和{\tt vsie}.STIE是{\tt hip}.VSTIP和{\tt hie}.VSTIE的别名。
+% When bit 6 of {\tt hideleg} is zero, {\tt vsip}.STIP and {\tt vsie}.STIE
+% are read-only zeros.
+% Else, {\tt vsip}.STIP and {\tt vsie}.STIE are aliases of {\tt hip}.VSTIP
+% and {\tt hie}.VSTIE.
+
+当{\tt hideleg}的第2位为零时，{\tt vsip}.SSIP和{\tt vsie}.SSIE是只读零。
+其他时候，{\tt vsip}.SSIP和{\tt vsie}.SSIE是{\tt hip}.VSSIP和{\tt hie}.VSSIE的别名。
+% When bit 2 of {\tt hideleg} is zero, {\tt vsip}.SSIP and {\tt vsie}.SSIE
+% are read-only zeros.
+% Else, {\tt vsip}.SSIP and {\tt vsie}.SSIE are aliases of {\tt hip}.VSSIP
+% and {\tt hie}.VSSIE.
+
+\subsection{虚拟监管级陷入向量基地址寄存器（{\tt vstvec}）}
+% \subsection{Virtual Supervisor Trap Vector Base Address Register ({\tt vstvec})}
+
+{\tt vstvec}寄存器是一个VSXLEN位读/写寄存器，它是监管级寄存器{\tt stvec}的VS模式的版本，其格式如图~\ref{vstvecreg}所示。
+当V=1时，{\tt vstvec}代替了通常的{\tt stvec}，所以通常读或修改{\tt stvec}的指令实际上会访问{\tt vstvec}。
+当V=0时，{\tt vstvec}不会直接影响机器的行为。
+% The {\tt vstvec} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt stvec}, formatted as shown
+% in Figure~\ref{vstvecreg}.
+% When V=1, {\tt vstvec} substitutes for the usual {\tt stvec}, so
+% instructions that normally read or modify {\tt stvec} actually access
+% {\tt vstvec} instead.
+% When V=0, {\tt vstvec} does not directly affect the behavior of the
+% machine.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{J@{}R}
+\instbitrange{VSXLEN-1}{2} &
+\instbitrange{1}{0} \\
+\hline
+\multicolumn{1}{|c|}{BASE[VSXLEN-1:2] (\warl)} &
+\multicolumn{1}{c|}{MODE (\warl)} \\
+\hline
+VSXLEN-2 & 2 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟监管级陷入向量基地址寄存器（{\tt vstvec}）。
+  % Virtual supervisor trap vector base address register ({\tt vstvec}).
+  }
+\label{vstvecreg}
+\end{figure*}
+
+\subsection{虚拟监管级scratch寄存器（{\tt vsscratch}）}
+% \subsection{Virtual Supervisor Scratch Register ({\tt vsscratch})}
+
+{\tt vsscratch}寄存器是一个VSXLEN位读/写寄存器，它是监管级寄存器{\tt sscratch}的VS模式的版本，其格式如图~\ref{vsscratchreg}所示。
+当V=1时，{\tt vsscratch}代替了通常的{\tt sscratch}，所以通常读或修改{\tt sscratch}的指令实际上会访问{\tt vsscratch}。
+{\tt vsscratch}的内容从不会直接影响机器的行为。
+% The {\tt vsscratch} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt sscratch}, formatted as
+% shown in Figure~\ref{vsscratchreg}.
+% When V=1, {\tt vsscratch} substitutes for the usual {\tt sscratch}, so
+% instructions that normally read or modify {\tt sscratch} actually access
+% {\tt vsscratch} instead.
+% The contents of {\tt vsscratch} never directly affect the behavior of
+% the machine.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{VSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt vsscratch} \\
+\hline
+VSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟监管级scratch寄存器（{\tt vsscratch}）
+  % Virtual supervisor scratch register ({\tt vsscratch}).
+  }
+\label{vsscratchreg}
+\end{figure*}
+
+\subsection{虚拟监管级异常程序计数器（{\tt vsepc}）}
+% \subsection{Virtual Supervisor Exception Program Counter ({\tt vsepc})}
+
+{\tt vsepc}寄存器是一个VSXLEN位读/写寄存器，它是监管级寄存器{\tt sepc}的VS模式的版本，其格式如图~\ref{vsepcreg}所示。
+当V=1时，{\tt vsepc}代替了通常的{\tt sepc}，所以通常读或修改{\tt sepc}的指令实际上会访问{\tt vsepc}。
+当V=0时，{\tt vsepc}不会直接影响机器的行为。
+% The {\tt vsepc} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt sepc}, formatted as shown
+% in Figure~\ref{vsepcreg}.
+% When V=1, {\tt vsepc} substitutes for the usual {\tt sepc}, so
+% instructions that normally read or modify {\tt sepc} actually access
+% {\tt vsepc} instead.
+% When V=0, {\tt vsepc} does not directly affect the behavior of the
+% machine.
+
+{\tt vsepc}是一个\warl\ 寄存器，其必须能够保持与{\tt sepc}可以保持的相同值的集合。
+% {\tt vsepc} is a \warl\ register that must be able to hold the same set of
+% values that {\tt sepc} can hold.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{VSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt vsepc} \\
+\hline
+VSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟监管级异常程序计数器（{\tt vsepc}）。
+  % Virtual supervisor exception program counter ({\tt vsepc}).
+  }
+\label{vsepcreg}
+\end{figure*}
+
+\subsection{虚拟监管级原因寄存器（{\tt vscause}）}
+% \subsection{Virtual Supervisor Cause Register ({\tt vscause})}
+
+{\tt vscause}寄存器是一个VSXLEN位读/写寄存器，它是监管级寄存器{\tt scause}的VS模式的版本，其格式如图~\ref{vscausereg}所示。
+当V=1时，{\tt vscause}代替了通常的{\tt scause}，所以通常读或修改{\tt scause}的指令实际上会访问{\tt vscause}。
+当V=0时，{\tt vscause}不会直接影响机器的行为。
+% The {\tt vscause} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt scause}, formatted as shown
+% in Figure~\ref{vscausereg}.
+% When V=1, {\tt vscause} substitutes for the usual {\tt scause}, so
+% instructions that normally read or modify {\tt scause} actually access
+% {\tt vscause} instead.
+% When V=0, {\tt vscause} does not directly affect the behavior of the
+% machine.
+
+{\tt vscause}是一个\warl\ 寄存器，其必须能够保持与{\tt scause}可以保持的相同值的集合。
+% {\tt vscause} is a \wlrl\ register that must be able to hold the same set of
+% values that {\tt scause} can hold.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{c@{}U}
+\instbit{VSXLEN-1} &
+\instbitrange{VSXLEN-2}{0} \\
+\hline
+\multicolumn{1}{|c|}{Interrupt} &
+\multicolumn{1}{c|}{Exception Code (\wlrl)} \\
+\hline
+1 & VSXLEN-1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟监管级原因寄存器（{\tt vscause}）。
+  % Virtual supervisor cause register ({\tt vscause}).
+  }
+\label{vscausereg}
+\end{figure*}
+
+\subsection{虚拟超级监管器陷入值寄存器（{\tt vstval}）}
+% \subsection{Virtual Supervisor Trap Value Register ({\tt vstval})}
+
+{\tt vstval}寄存器是一个VSXLEN位读/写寄存器，它是监管级寄存器{\tt stval}的VS模式的版本，其格式如图~\ref{vstvalreg}所示。
+当V=1时，{\tt vstval}代替了通常的{\tt stval}，所以通常读或修改{\tt stval}的指令实际上会访问{\tt vstval}。
+当V=0时，{\tt vstval}不会直接影响机器的行为。
+% The {\tt vstval} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt stval}, formatted as shown
+% in Figure~\ref{vstvalreg}.
+% When V=1, {\tt vstval} substitutes for the usual {\tt stval}, so
+% instructions that normally read or modify {\tt stval} actually access
+% {\tt vstval} instead.
+% When V=0, {\tt vstval} does not directly affect the behavior of the
+% machine.
+
+{\tt vstval}是一个\warl\ 寄存器，其必须能够保持与{\tt stval}可以保持的相同值的集合。
+% {\tt vstval} is a \warl\ register that must be able to hold the same set of
+% values that {\tt stval} can hold.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{VSXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt vstval} \\
+\hline
+VSXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{虚拟超级监管器陷入值寄存器（{\tt vstval}）。
+  % Virtual supervisor trap value register ({\tt vstval}).
+  }
+\label{vstvalreg}
+\end{figure*}
+
+\subsection{虚拟监管级地址翻译和保护寄存器 （{\tt vsatp}）}
+% \subsection{Virtual Supervisor Address Translation and Protection Register ({\tt vsatp})}
+
+{\tt vsatp}寄存器是一个VSXLEN位读/写寄存器，它是监管级寄存器{\tt satp}在VS模式下的版本，其VSXLEN=32格式如图~\ref{rv32vsatpreg}，
+VSXLEN=64格式如图~\ref{rv64vsatpreg}所示。
+% The {\tt vsatp} register is a VSXLEN-bit read/write register that is
+% VS-mode's version of supervisor register {\tt satp}, formatted as shown
+% in Figure~\ref{rv32vsatpreg} for VSXLEN=32 and Figure~\ref{rv64vsatpreg}
+% for VSXLEN=64.
+当V=1时，{\tt vsatp}代替{\tt satp}，所以读或修改{\tt satp}的指令实际上会访问{\tt vsatp}。
+% When V=1, {\tt vsatp} substitutes for the usual {\tt satp}, so
+% instructions that normally read or modify {\tt satp} actually access
+% {\tt vsatp} instead.
+{\tt vsatp}控制VS阶段宾客虚拟地址地址翻译--两阶段翻译中的第一阶段（见第~\ref{sec:two-stage-translation}节）。
+% {\tt vsatp} controls VS-stage address translation, the first stage of
+% two-stage translation for guest virtual addresses (see
+% Section~\ref{sec:two-stage-translation}).
+
+\begin{figure}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{c@{}E@{}K}
+\instbit{31} &
+\instbitrange{30}{22} &
+\instbitrange{21}{0} \\
+\hline
+\multicolumn{1}{|c|}{MODE (\warl)} &
+\multicolumn{1}{c|}{ASID (\warl)} &
+\multicolumn{1}{c|}{PPN  (\warl)} \\
+\hline
+1 & 9 & 22 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{ 当VSXLEN=32时，虚拟监管级地址翻译和保护寄存器{\tt vsatp}
+  % Virtual supervisor address translation and protection register {\tt vsatp} when VSXLEN=32.
+  }
+\label{rv32vsatpreg}
+\end{figure}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}S@{}T@{}U}
+\instbitrange{63}{60} &
+\instbitrange{59}{44} &
+\instbitrange{43}{0} \\
+\hline
+\multicolumn{1}{|c|}{MODE (\warl)} &
+\multicolumn{1}{c|}{ASID (\warl)} &
+\multicolumn{1}{c|}{PPN  (\warl)} \\
+\hline
+4 & 16 & 44 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当VSXLEN=64时，裸机、Sv39、Sv48和Sv57模式下，虚拟监管级地址翻译和保护寄存器{\tt vsatp}
+% Virtual supervisor address translation and protection register {\tt vsatp} when VSXLEN=64, for MODE
+% values Bare, Sv39, Sv48, and Sv57.
+}
+\label{rv64vsatpreg}
+\end{figure*}
+
+为了地址翻译算法的目的，{\tt vsatp}寄存器被认为是{\em 活跃的}，除非有效的权限模式是U并且{\tt hstatus}.HU=0。
+% The {\tt vsatp} register is considered {\em active} for the purposes of the
+% address-translation algorithm {\em unless} the effective privilege mode is U
+% and {\tt hstatus}.HU=0.
+然而，即使当{\tt vsatp}是活跃的，VS阶段页表实体的A位不可以作为推测执行的结构而被设置，除非有效的权限模式是VS或VU。
+% However, even when {\tt vsatp} is active, VS-stage page-table entries' A bits
+% must not be set as a result of speculative execution, unless the effective
+% privilege mode is VS or VU.
+
+\begin{commentary}
+  特别地，虚拟机加载/存储（HLV，HLVX，或HSV）指令(misspeculatively)
+In particular, virtual-machine load/store (HLV, HLVX, or HSV) instructions
+that are misspeculatively executed must not cause VS-stage A bits to be set.
+\end{commentary}
+
+当V=0时，对{\tt vsatp}的带有不支持的权限模式值的写操作要么被忽略（就像{\tt satp}一样），要么{\tt vsatp}的域在平常的方式下被当做{\warl}。
+然而，如果V=1，对{\tt satp}的带有不支持的权限模式值的写操作会被忽略，并且不会对{\tt vsatp}生效。
+% When V=0, a write to {\tt vsatp} with an unsupported MODE value is either 
+% ignored as it is for {\tt satp}, or the fields of {\tt vsatp} are treated as {\warl} in the normal way.
+% However, when V=1, a write to {\tt satp} with an unsupported MODE value
+% {\em is} ignored and no write to {\tt vsatp} is effected.
+
+当V=0时，{\tt vsatp}不会直接影响机器的行为，除非一个虚拟机加载/存取指令（HLV, HLVX, or HSV）或
+在{\tt mstatus}中的MPRV特性被用来执行一个加载或存储操作（就像在V=1时）。
+% When V=0, {\tt vsatp} does not directly affect the behavior of the machine,
+% unless a virtual-machine load/store (HLV, HLVX, or HSV)
+% or the MPRV feature in the {\tt mstatus}
+% register is used to execute a load or store
+% {\em as though} V=1.
+
+\section{超级监管器指令}
+% \section{Hypervisor Instructions}
+
+超级监管器拓展添加了虚拟机加载和存储指令和两个特权屏障指令。
+% The hypervisor extension adds virtual-machine load and store instructions
+% and two privileged fence instructions.
+
+\subsection{超级监管级虚拟机加载和存储指令}
+% \subsection{Hypervisor Virtual-Machine Load and Store Instructions}
+
+\vspace{-0.2in}
+\begin{center}
+\begin{tabular}{@{}O@{}R@{}R@{}F@{}R@{}S}
+\\
+\instbitrange{31}{25} &
+\instbitrange{24}{20} &
+\instbitrange{19}{15} &
+\instbitrange{14}{12} &
+\instbitrange{11}{7} &
+\instbitrange{6}{0} \\
+\hline
+\multicolumn{1}{|c|}{funct7} &
+\multicolumn{1}{c|}{rs2} &
+\multicolumn{1}{c|}{rs1} &
+\multicolumn{1}{c|}{funct3} &
+\multicolumn{1}{c|}{rd} &
+\multicolumn{1}{c|}{opcode} \\
+\hline
+7 & 5 & 5 & 3 & 5 & 7 \\
+HLV.\textit{width} & [U]  & addr & PRIVM & dest & SYSTEM \\
+HLVX.HU/WU         & HLVX & addr & PRIVM & dest & SYSTEM \\
+HSV.\textit{width} & src  & addr & PRIVM & 0    & SYSTEM \\
+\end{tabular}
+\end{center}
+
+超级监管器虚拟机加载和存储指令仅在M模式或HS模式下有效，或在U模式下当{\tt hstatus}.HU=1时有效。
+每条指令执行一个显式的内存访问，尽管V=1;即，具有地址转换、保护和端序，适用于vs模式或vu模式下的内存访问。
+字段SPVP的{\tt hstatus}控制访问的权限级别。当SPVP=0时，显式内存访问就像在VU模式下完成，当SPVP=1时，就像在VS模式下完成。
+和往常一样，当V=1时，应用两级地址转换，HS级{\tt sstatus}.SUM将被忽略。HS级{\tt sstatus}.MXR使得仅执行的页面
+对于地址转换的两个阶段(VS阶段和G阶段)都是可读的，而{\tt vsstatus}.MXR只影响第一个翻译阶段(VS阶段)。
+% The hypervisor virtual-machine load and store instructions are valid only
+% in M-mode or HS-mode, or in U-mode when {\tt hstatus}.HU=1.
+% Each instruction performs an explicit memory access as though V=1;
+% i.e., with the address translation and protection, and the endianness,
+% that apply to memory accesses in either VS-mode or VU-mode.
+% Field SPVP of {\tt hstatus} controls the privilege level of the access.
+% The explicit memory access is done as though in VU-mode when SPVP=0, and
+% as though in VS-mode when SPVP=1.
+% As usual when V=1, two-stage address translation is applied, and the
+% HS-level {\tt sstatus}.SUM is ignored.
+% HS-level {\tt sstatus}.MXR makes execute-only pages readable for
+% both stages of address translation (VS-stage and G-stage), whereas
+% {\tt vsstatus}.MXR affects only the first translation stage (VS-stage).
+
+对于每个RV32I或RV64I加载指令LB、LBU、LH、LHU、LW、LWU和LD，都有一个对应的虚拟机加载指令：
+HLV.B、HLV.BU、HLV.H、HLV.HU、HLV.W、HLV.WU和HLV.D。对于每个RV32I或RV64I存储指令SB、SH、SW和SD，
+都有一个相应的虚拟机存储指令：HSV.B、HSV.H、HSV.W和HSV.D。当然，指令HLV.WU、HLV.D和HSV.D对RV32无效。
+% For every RV32I or RV64I load instruction, LB, LBU, LH, LHU, LW, LWU,
+% and LD, there is a corresponding virtual-machine load instruction:
+% HLV.B, HLV.BU, HLV.H, HLV.HU, HLV.W, HLV.WU, and HLV.D.
+% For every RV32I or RV64I store instruction, SB, SH, SW, and SD, there is
+% a corresponding virtual-machine store instruction:  HSV.B, HSV.H, HSV.W,
+% and HSV.D.
+% Instructions HLV.WU, HLV.D, and HSV.D are not valid for RV32, of course.
+
+HLVX.HU和HLVX.WU指令与HLV.HU和HLV.WU是一样的，除了在地址转换过程中，\textit{执行}权限取代了\textit{读}权限。
+也就是说，被读取的内存必须在地址转换的两个阶段都是可执行的，但不需要读取权限。
+对于由地址翻译产生的监管级物理地址，监管级物理内存属性必须同时授予\textit{执行}和\textit{写}权限。
+(\textit{超级监管器物理内存属性}是由监管级物理内存保护（第~\ref{sec:pmp}节）修改的机器物理内存属性。)
+% Instructions HLVX.HU and HLVX.WU are the same as HLV.HU and HLV.WU,
+% except that \textit{execute} permission takes the place of \textit{read}
+% permission during address translation.
+% That is, the memory being read must be executable in both stages of
+% address translation, but read permission is not required.
+% For the supervisor physical address that results from address
+% translation, the supervisor physical memory attributes must grant both
+% \textit{execute} and \textit{read} permissions.
+% (The \textit{supervisor physical memory attributes} are the machine's
+% physical memory attributes as modified by physical memory protection,
+% Section~\ref{sec:pmp}, for supervisor level.)
+
+\begin{commentary}
+  HLVX不能覆盖机器级物理内存保护(PMP)，因此试图读取PMP指定为仅执行的内存仍然会导致访问错误异常。
+% HLVX cannot override machine-level physical memory protection (PMP),
+% so attempting to read memory that PMP designates as execute-only still
+% results in an access-fault exception.
+
+尽管HLVX指令的显式内存访问需要执行权限，但它们仍然会引发与其他加载指令相同的异常，而不是引发获取异常。
+% Although HLVX instructions' explicit memory accesses require execute
+% permissions, they still raise the same exceptions as other load instructions,
+% rather than raising fetch exceptions instead.
+\end{commentary}
+
+HLVX.WU对于RV32是有效的，即使LWU和HLV是无效的。(对于RV32，HLVX.WU可以被认为是HLV.W的变体，因为符号扩展与32位值无关。)
+% HLVX.WU is valid for RV32, even though LWU and HLV.WU are not.
+% (For RV32, HLVX.WU can be considered a variant of HLV.W, as sign
+% extension is irrelevant for 32-bit values.)
+
+当V=1时，试图执行虚拟机加载/存储指令(HLV、HLVX或HSV)会引起虚拟指令陷入。
+当{\tt hstatus}.HU=0，试图在U模式执行上述指令会引起非法指令陷入。
+% Attempts to execute a virtual-machine load/store instruction (HLV, HLVX,
+% or HSV) when V=1 cause a virtual instruction trap.
+% Attempts to execute one of these same instructions from U-mode when
+% {\tt hstatus}.HU=0 cause an illegal instruction trap.
+
+\subsection{超级监管器内存管理屏障指令}
+% \subsection{Hypervisor Memory-Management Fence Instructions}
+\label{sec:hfence.vma}
+
+\vspace{-0.2in}
+\begin{center}
+\begin{tabular}{@{}O@{}R@{}R@{}F@{}R@{}S}
+\\
+\instbitrange{31}{25} &
+\instbitrange{24}{20} &
+\instbitrange{19}{15} &
+\instbitrange{14}{12} &
+\instbitrange{11}{7} &
+\instbitrange{6}{0} \\
+\hline
+\multicolumn{1}{|c|}{funct7} &
+\multicolumn{1}{c|}{rs2} &
+\multicolumn{1}{c|}{rs1} &
+\multicolumn{1}{c|}{funct3} &
+\multicolumn{1}{c|}{rd} &
+\multicolumn{1}{c|}{opcode} \\
+\hline
+7 & 5 & 5 & 3 & 5 & 7 \\
+HFENCE.VVMA & asid & vaddr & PRIV & 0 & SYSTEM \\
+HFENCE.GVMA & vmid & gaddr & PRIV & 0 & SYSTEM \\
+\end{tabular}
+\end{center}
+
+超级监管器内存管理屏障指令HFENCE.VVMA和HFENCE.GVMA，执行类似SFENCE.VMA的功能（第~\ref{sec:sfence.vma}节），
+但应用于由CSR {\tt vsatp}（HFENCE.VVMA）控制的VS级内存管理数据结构或由CSR {\tt hgatp}（HFENCE.GVMA）控制的宾客物理内存管理数据结构除外。
+指令SFENCE.VMA只应用于当前{\tt satp}控制的内存管理数据结构（当V=0时是HS级{\tt satp}，当V=1时是{\tt vsatp}）。
+% The hypervisor memory-management fence instructions, HFENCE.VVMA
+% and HFENCE.GVMA, perform a function similar to SFENCE.VMA
+% (Section~\ref{sec:sfence.vma}), except applying to the VS-level
+% memory-management data structures controlled by CSR {\tt vsatp}
+% (HFENCE.VVMA) or the guest-physical memory-management data structures
+% controlled by CSR {\tt hgatp} (HFENCE.GVMA).
+% Instruction SFENCE.VMA applies only to the memory-management data structures
+% controlled by the current {\tt satp} (either the HS-level {\tt satp} when
+% V=0 or {\tt vsatp} when V=1).
+
+HFENCE.VVMA仅在M模式或HS模式下有效。它的效果与临时进入VS模式并执行SFENCE.VMA非常相似。
+执行HFENCE.VVMA可以确保，当前硬件线程已经可见的任何先前的存储操作，在所有隐式读取指令的VS阶段地址翻译之前已经被完成。
+这些指令如下：
+% HFENCE.VVMA is valid only in M-mode or HS-mode.
+% Its effect is much the
+% same as temporarily entering VS-mode and executing SFENCE.VMA.
+% Executing an HFENCE.VVMA guarantees that any previous stores already visible
+% to the current hart are ordered before all implicit reads by that
+% hart done for VS-stage address translation for instructions that
+\begin{compactitem}
+\item
+在HFENCE.VVMA之后的指令，和
+% are subsequent to the HFENCE.VVMA, and
+\item
+当{\tt hgatp}.VMID有与执行HFENCE.VVMA相同效果的设置时，执行的指令。
+% execute when {\tt hgatp}.VMID has the same setting as it did when HFENCE.VVMA
+% executed.
+\end{compactitem}
+
+当{\tt hgatp}.VMID与HFENCE.VVMA执行的时候不同时，隐式读取不需要排序。
+如果操作数{\em rs1}$\neq${\tt x0}，它指定一个宾客虚拟地址，如果操作数{\em rs2}$\neq${\tt x0}，
+它指定一个宾客地址空间标识符(ASID)。
+% Implicit reads need not be ordered when {\tt hgatp}.VMID is different than at
+% the time HFENCE.VVMA executed.
+% If operand {\em rs1}$\neq${\tt x0}, it specifies a single guest virtual
+% address, and if operand {\em rs2}$\neq${\tt x0}, it specifies a single guest
+% address-space identifier
+% (ASID).
+
+\begin{commentary}
+  一个HFENCE.VVMA指令只应用于一个虚拟机，当HFENCE.VVMA执行时，通过设置{\tt hgatp}.VMID标识当前虚拟机。
+% An HFENCE.VVMA instruction applies only to a single virtual machine, identified
+% by the setting of {\tt hgatp}.VMID when HFENCE.VVMA executes.
+\end{commentary}
+
+当{\em rs2}$\neq${\tt x0}时，{\em rs2}中保存的值的位XLEN-1:ASIDMAX保留以供将来标准使用。
+在标准拓展定义它们的使用之前，它们应该被软件归零，并被当前的实现忽略。
+此外，如果ASIDLEN~$<$~ASIDMAX，实现将忽略{\em rs2}中保存的值的ASIDMAX-1:ASIDLEN位。
+% When {\em rs2}$\neq${\tt x0}, bits XLEN-1:ASIDMAX of the value held in {\em
+% rs2} are reserved for future standard use.  Until their use is defined by a
+% standard extension, they should be zeroed by software and ignored
+% by current implementations.
+% Furthermore, if ASIDLEN~$<$~ASIDMAX, the implementation shall ignore bits
+% ASIDMAX-1:ASIDLEN of the value held in {\em rs2}.
+
+\begin{commentary}
+  HFENCE.VVMA简单的实现可以忽略{\em rs1}中的宾客虚拟地址和{\em rs2}中的宾客ASID值，以及{\tt hgatp}.VMID，
+  并始终为所有虚拟机的VS级内存管理执行全局屏障，甚至为所有内存管理数据结构执行全局屏障。
+% Simpler implementations of HFENCE.VVMA can ignore the guest virtual address in
+% {\em rs1} and the guest ASID value in {\em rs2}, as well as {\tt hgatp}.VMID,
+% and always perform a global fence for the VS-level memory management of all
+% virtual machines, or even a global fence for all memory-management data
+% structures.
+\end{commentary}
+
+{\tt mstatus}.TVM 和{\tt hstatus}.VTVM 都不会引起陷入。
+% Neither {\tt mstatus}.TVM nor {\tt hstatus}.VTVM causes HFENCE.VVMA to
+% trap.
+
+HFENCE.GVMA仅在HS模式下当{\tt mstatus}.TVM=0时，或在M模式下（不考虑{\tt mstatus}.TVM）有效。
+执行一个HFENCE.GVMA指令保证当前硬件线程已经可见的任何先前的存储，在该硬件线程为遵循HFENCE.GVMA的指令进行G阶段地址翻译的所有隐式读取之前被排序。
+如果操作数{\em rs1}$\neq${\tt x0}，它指定一个宾客物理地址，并右移2位；
+如果操作数{\em rs2}$\neq${\tt x0}，它指定一个虚拟机标识符(VMID)。
+% HFENCE.GVMA is valid only in HS-mode when {\tt mstatus}.TVM=0, or in
+% M-mode (irrespective of {\tt mstatus}.TVM).
+% Executing an HFENCE.GVMA instruction guarantees that any previous stores
+% already visible to the current hart are ordered before all implicit
+% reads by that hart done for G-stage address translation for instructions
+% that follow the HFENCE.GVMA.
+% If operand {\em rs1}$\neq${\tt x0}, it specifies a single guest physical
+% address, shifted right by 2~bits, and if operand {\em rs2}$\neq${\tt x0}, it
+% specifies a single virtual machine identifier (VMID).
+
+\begin{commentary}
+  从概念上讲，一个实现可能包含两个地址转换缓存：一个将宾客虚拟地址映射到宾客物理地址，
+  另一个将宾客物理地址映射到监管级物理地址。HFENCE.GVMA不需要刷新前一个缓存，
+  但它必须从后一个缓存中刷新与HFENCE.GVMA地址和VMID参数相匹配的条目。
+% Conceptually, an implementation might contain two address-translation caches:
+% one that maps guest virtual addresses to guest physical addresses, and another
+% that maps guest physical addresses to supervisor physical addresses.
+% HFENCE.GVMA need not flush the former cache, but it must flush entries from
+% the latter cache that match the HFENCE.GVMA's address and VMID arguments.
+
+更常见的是，实现包含地址翻译的缓存，它将宾客虚拟地址直接映射到监管级物理地址，消除了某种程度的间接。
+对于这种实现，其宾客虚拟地址映射到与HFENCE.GVMA的地址和VMID参数匹配的宾客物理地址的任何条目必须被刷新。
+以这种方式有选择地刷新条目需要用宾客物理地址标记它们，这代价很高。因此常用的技术是刷新与HFENCE.GVMA的VMID参数匹配的所有条目，而不理会地址参数。
+% More commonly, implementations contain address-translation caches that map
+% guest virtual addresses directly to supervisor physical addresses, removing
+% a level of indirection.
+% For such implementations, any entry whose guest virtual address maps to
+% a guest physical address that matches the HFENCE.GVMA's address and VMID
+% arguments must be flushed.
+% Selectively flushing entries in this fashion requires tagging them with
+% the guest physical address, which is costly, and so a common technique is
+% to flush all entries that match the HFENCE.GVMA's VMID argument, regardless
+% of the address argument.
+\end{commentary}
+
+\begin{commentary}
+  就像在陷入中写入{\tt htval}的宾客物理地址一样，在{\em rs1}中指定的宾客物理地址将右移2位，以容纳比当前XLEN更宽的地址。
+% Like for a guest physical address written to {\tt htval} on a
+% trap, a guest physical address specified in {\em rs1} is shifted
+% right by 2~bits to accommodate addresses wider than the current XLEN.
+\end{commentary}
+
+当{\em rs2}$\neq${\tt x0}时，{\em rs2}中保存的值的位XLEN-1:VMIDMAX保留以供将来标准使用。
+在标准扩展定义它们的使用之前，它们应该被软件归零，并被当前的实现忽略。
+此外，如果VMIDLEN~$<$~VMIDMAX，则实现将忽略{\em rs2}中保存的值的位VMIDMAX-1:VMIDLEN。
+% When {\em rs2}$\neq${\tt x0}, bits XLEN-1:VMIDMAX of the value held in {\em
+% rs2} are reserved for future standard use.  Until their use is defined by a
+% standard extension, they should be zeroed by software and ignored
+% by current implementations.
+% Furthermore, if VMIDLEN~$<$~VMIDMAX, the implementation shall ignore bits
+% VMIDMAX-1:VMIDLEN of the value held in {\em rs2}.
+
+\begin{commentary}
+  HFENCE.GVMA的简单实现可以忽略{\em rs1}中的宾客物理地址和{\em rs2}中的VMID值，
+  并始终为所有虚拟机的宾客物理内存管理执行全局隔离，甚至为所有内存管理数据结构执行全局隔离。
+% Simpler implementations of HFENCE.GVMA can ignore the guest physical address in
+% {\em rs1} and the VMID value in {\em rs2} and always perform a global fence for
+% the guest-physical memory management of all virtual machines, or even a global
+% fence for all memory-management data structures.
+\end{commentary}
+
+如果{\tt hgatp}.MODE对于给定的VMID被更改，HFENCE.GVMA必须执行带有{\em rs1}={\tt x0}(以及{\em rs2}设置为{\tt x0}或VMID)的GVMA，
+以便命令带有MODE更改的后续宾客翻译——即使旧MODE或新MODE为Bare。
+% If {\tt hgatp}.MODE is changed for a given VMID, an HFENCE.GVMA with
+% {\em rs1}={\tt x0} (and {\em rs2} set to either {\tt x0} or the VMID) must
+% be executed to order subsequent guest translations with the MODE
+% change---even if the old MODE or new MODE is Bare.
+
+试图执行HFENCE.VVMA，或在V=1时执行HFENCE.GVMA会引起一个虚拟指令陷入，
+而在U模式下尝试做同样的事情会导致非法指令陷入。在HS模式下并且{\tt mstatus}.TVM=1时，试图执行HFENCE.GVMA也会导致非法指令陷入。
+% Attempts to execute HFENCE.VVMA or HFENCE.GVMA when V=1 cause a virtual
+% instruction trap, while attempts to do the same in U-mode
+% cause an illegal instruction trap.
+% Attempting to execute HFENCE.GVMA in HS-mode when {\tt mstatus}.TVM=1
+% also causes an illegal instruction trap.
+
+\section{机器级CSR}
+% \section{Machine-Level CSRs}
+
+超级监管器拓展增加或修改了机器级CSR {\tt mstatus}、{\tt mstatush}、{\tt mideleg}、{\tt mip}和{\tt mie}，
+并添加了CSR {\tt mtval2}和{\tt mtinst}。
+% The hypervisor extension augments or modifies machine CSRs {\tt mstatus},
+% {\tt mstatush}, {\tt mideleg}, {\tt mip}, and {\tt mie}, and
+% adds CSRs {\tt mtval2} and {\tt mtinst}.
+
+\subsection{机器级状态寄存器（{\tt mstatus}和{\tt mstatush}）}
+% \subsection{Machine Status Registers ({\tt mstatus} and {\tt mstatush})}
+
+超级监管器拓展将两个字段MPV和GVA添加到机器级别的{\tt mstatus}或{\tt mstatush} CSR中，并修改几个现有的{\tt mstatus}字段的行为。
+图~\ref{hypervisor-mstatus}显示了在实现了超级监管器拓展并且MXLEN=64时，修改的{\tt mstatus}寄存器。
+当MXLEN=32时，超级监管器拓展将MPV和GVA添加到{\tt mstatush}而不是{\tt mstatus}。
+图~\ref{hypervisor-mstatush}显示了在实现了超级监管器拓展并且MXLEN=32时的{\tt mstatush}寄存器。
+% The hypervisor extension adds two fields, MPV and GVA, to the
+% machine-level {\tt mstatus} or {\tt mstatush} CSR, and modifies the
+% behavior of several existing {\tt mstatus} fields.
+% Figure~\ref{hypervisor-mstatus} shows the modified {\tt mstatus} register
+% when the hypervisor extension is implemented and MXLEN=64.
+% When MXLEN=32, the hypervisor extension adds MPV and GVA not to {\tt mstatus}
+% but to {\tt mstatush}.
+% Figure~\ref{hypervisor-mstatush} shows the {\tt mstatush} register when
+% the hypervisor extension is implemented and MXLEN=32.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{cMccccFFc}
+\\
+\instbit{MXLEN-1} &
+\instbitrange{MXLEN-2}{40} &
+\instbit{39} &
+\instbit{38} &
+\instbit{37} &
+\instbit{36} &
+\instbitrange{35}{34} &
+\instbitrange{33}{32} &
+ \\
+\hline
+\multicolumn{1}{|c|}{SD} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{MPV} &
+\multicolumn{1}{c|}{GVA} &
+\multicolumn{1}{c|}{MBE} &
+\multicolumn{1}{c|}{SBE} &
+\multicolumn{1}{c|}{SXL[1:0]} &
+\multicolumn{1}{c|}{UXL[1:0]} &
+ \\
+\hline
+1 & MXLEN-41 & 1 & 1 & 1 & 1 & 2 & 2 & \\
+\end{tabular}
+\begin{tabular}{cEccccccWWc}
+\\
+&
+\instbitrange{31}{23} &
+\instbit{22} &
+\instbit{21} &
+\instbit{20} &
+\instbit{19} &
+\instbit{18} &
+\instbit{17} &
+\instbitrange{16}{15} &
+\instbitrange{14}{13} &
+ \\
+\hline
+ &
+\multicolumn{1}{|c|}{\wpri} &
+\multicolumn{1}{c|}{TSR} &
+\multicolumn{1}{c|}{TW} &
+\multicolumn{1}{c|}{TVM} &
+\multicolumn{1}{c|}{MXR} &
+\multicolumn{1}{c|}{SUM} &
+\multicolumn{1}{c|}{MPRV} &
+\multicolumn{1}{c|}{XS[1:0]} &
+\multicolumn{1}{c|}{FS[1:0]} &
+ \\
+\hline
+ & 9 & 1 & 1 & 1 & 1 & 1 & 1 & 2 & 2 & \\
+\end{tabular}
+\begin{tabular}{cFWcccccccccc}
+\\
+&
+\instbitrange{12}{11} &
+\instbitrange{10}{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbit{4} &
+\instbit{3} &
+\instbit{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+ &
+\multicolumn{1}{|c|}{MPP[1:0]} &
+\multicolumn{1}{c|}{VS[1:0]} &
+\multicolumn{1}{c|}{SPP} &
+\multicolumn{1}{c|}{MPIE} &
+\multicolumn{1}{c|}{UBE} &
+\multicolumn{1}{c|}{SPIE} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{MIE} &
+\multicolumn{1}{c|}{\wpri} &
+\multicolumn{1}{c|}{SIE} &
+\multicolumn{1}{c|}{\wpri} \\
+\hline
+ & 2 & 2 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当实现了超级监管器拓展时，RV64下的机器状态寄存器（{\tt mstatus}）。
+  % Machine status register ({\tt mstatus}) for RV64 when the hypervisor extension is implemented.
+  }
+\label{hypervisor-mstatus}
+\end{figure*}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{LccccF}
+\\
+\instbitrange{31}{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbit{4} &
+\instbitrange{3}{0} \\
+\hline
+\multicolumn{1}{|c|}{\wpri} &
+\multicolumn{1}{c|}{MPV} &
+\multicolumn{1}{c|}{GVA} &
+\multicolumn{1}{c|}{MBE} &
+\multicolumn{1}{c|}{SBE} &
+\multicolumn{1}{c|}{\wpri} \\
+\hline
+24 & 1 & 1 & 1 & 1 & 4 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{当实现了超级监管器拓展时，RV32下的额外的机器状态寄存器（{\tt mstatush}）。RV32下的{\tt mstatus}格式并未改变。
+%   Additional machine status register ({\tt mstatush}) for RV32 when the hypervisor extension is implemented.
+% The format of {\tt mstatus} is unchanged for RV32.
+}
+\label{hypervisor-mstatush}
+\end{figure*}
+
+MPV位(机器以前的虚拟化模式)在陷入进入M模式时写入。
+就像MPP字段在陷入发生时被设置为(名义上的)特权模式一样，MPV位在陷入发生时被设置为虚拟模式V的值。
+当MRET指令被执行时，虚拟模式V被设置为MPV，除非MPP=3，在这种情况下V保持为0。
+% The MPV bit (Machine Previous Virtualization Mode) is written by the implementation
+% whenever a trap is taken into M-mode.
+% Just as the MPP field is set to the (nominal) privilege
+% mode at the time of the trap, the MPV bit is set to the value of the virtualization
+% mode V at the time of the trap.  When an MRET instruction is executed, the
+% virtualization mode V is set to MPV, unless MPP=3, in which case V remains 0.
+
+字段GVA (Guest Virtual Address)在陷入进入M模式时由实现写入。
+对于将宾客虚拟地址写入{\tt mtval}的任何陷入(断点、地址不对齐、访问错误、页面错误或宾客页面错误)，
+GVA被设置为1。对于进入M模式的其他陷入, GVA被设置为0。
+% Field GVA (Guest Virtual Address) is written by the implementation
+% whenever a trap is taken into M-mode.
+% For any trap (breakpoint, address misaligned,
+% access fault, page fault, or guest-page fault) that writes
+% a guest virtual address to {\tt mtval}, GVA is set to~1.
+% For any other trap into M-mode, GVA is set to~0.
+
+{\tt mstatus}的TSR和TVM字段只影响HS模式下的执行，而不影响VS模式下的执行。TW字段影响除M模式外的所有模式的执行。
+% The TSR and TVM fields of {\tt mstatus} affect execution only in HS-mode,
+% not in VS-mode.
+% The TW field affects execution in all modes except M-mode.
+
+设置TVM=1可防止HS模式访问{\tt hgatp}或执行HFENCE.GVMA或HINVAL.GVMA，但对访问{\tt vsatp}或指令HFENCE.VVMA或HINVAL.VVMA没有影响。
+% Setting TVM=1 prevents HS-mode from accessing {\tt hgatp} or executing
+% HFENCE.GVMA or HINVAL.GVMA, but has no effect on accesses to {\tt vsatp} or
+% instructions HFENCE.VVMA or HINVAL.VVMA.
+
+\begin{commentary}
+  TVM存在于{\tt mstatus}中，允许机器级软件修改由监管级操作系统管理的地址翻译过程，
+  通常是为了在操作系统控制的地址翻译下面插入另一个阶段的地址转换。
+  由TVM=1启用的指令陷入允许机器级合并{\tt satp}和{\tt hgatp}，并替换\emph{影子页表}（将操作系统选择的页翻译与M级的低级阶段（lower-stage）翻译合并），这些操作系统都不会感知到。
+  M级软件不仅需要这种能力来模拟尚未被支持的管理程序扩展，而且还需要模拟任何可能修改或添加地址翻译阶段的未来\mbox{RISC-V}扩展，
+  例如：对嵌套超级监管器程序的改进支持，即在其他超级监管器之上运行超级监管器。
+% TVM exists in {\tt mstatus} to allow machine-level software to modify
+% the address translations managed by a supervisor-level OS, usually for
+% the purpose of inserting another stage of address translation below
+% that controlled by the OS.
+% The instruction traps enabled by TVM=1 permit machine level
+% to co-opt both {\tt satp} and {\tt hgatp} and substitute
+% \emph{shadow page tables} that merge the OS's chosen page translations
+% with M-level's lower-stage translations, all without the OS being
+% aware.
+% M-level software needs this ability not only to emulate the hypervisor
+% extension if not already supported, but also to emulate any future
+% \mbox{RISC-V} extensions that may modify or add address translation
+% stages, perhaps, for example, to improve support for nested
+% hypervisors, i.e., running hypervisors atop other hypervisors.
+
+然而，设置TVM=1不会导致访问{\tt vsatp}或着HFENCE.VVMA或HINVAL.VMA指令的陷入，或者在VS模式下采取的任何操作，
+因为M级软件不需要涉及VS阶段地址转换。对于虚拟机来说，不去管VS阶段的地址翻译，
+而将所有其他的翻译阶段合并到由{\tt hgatp}控制的G阶段影子页表中，应该就足够了，而且很可能更快。
+这种假设确实对当前机器能够有效模拟的未来可能的\mbox{RISC-V}扩展施加了一些限制。
+% However, setting TVM=1 does not cause traps for accesses to {\tt vsatp}
+% or instructions HFENCE.VVMA or HINVAL.VVMA, or for any actions taken
+% in VS-mode, because M-level software is not expected to need to involve
+% itself in VS-stage address translation.
+% For virtual machines, it should be sufficient, and in all likelihood
+% faster as well, to leave VS-stage address translation alone and merge
+% all other translation stages into G-stage shadow page tables controlled
+% by {\tt hgatp}.
+% This assumption does place some constraints on possible future
+% \mbox{RISC-V} extensions that current machines will be able to emulate
+% efficiently.
+\end{commentary}
+
+超级监管器拓展更改{\tt mstatus}的修改权限字段MPRV的行为。
+当MPRV=0时，翻译和保护行为正常。
+当MPRV=1时，显式内存访问被转换和保护，并应用端序，就好像当前虚拟模式被设置为MPV，
+当前名义特权模式被设置为MPP。表~\ref{h-mprv}列举了这些例子。
+% The hypervisor extension changes the behavior of the Modify Privilege field,
+% MPRV, of {\tt mstatus}.
+% When MPRV=0, translation and protection behave as normal.
+% When MPRV=1, explicit memory accesses are translated and protected, and
+% endianness is applied, as though the current virtualization mode were set
+% to MPV and the current nominal privilege mode were set to MPP.
+% Table~\ref{h-mprv} enumerates the cases.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|c|c|c||p{4.5in}|}
+  \hline
+   MPRV & MPV & MPP & 影响 \\ \hline \hline
+   0    & --  & --  & 一般访问；当前特权模式应用。 Normal access; current privilege mode applies. \\ \hline
+   1    & 0   & 0   & 只带有HS级别翻译和保护的U级访问。 U-level access with HS-level translation and protection only. \\ \hline
+   1    & 0   & 1   & 只带有HS级别翻译和保护的HS级访问。 HS-level access with HS-level translation and protection only.  \\ \hline
+   1    & --  & 3   & 没有翻译的M级别访问。 M-level access with no translation. \\ \hline
+   1    & 1   & 0   & 具有两级转换和保护的VU级访问。HS级MXR位使任何可执行页面都可读。{\tt vsstatus}.MXR使那些在VS翻译阶段标记为可执行的页面具有可读性，但只有在宾客物理翻译阶段才具有可读性。VU-level access with two-stage translation and protection. The HS-level MXR bit makes any executable page readable.  {\tt vsstatus}.MXR makes readable those pages marked executable at the VS translation stage, but only if readable at the guest-physical translation stage. \\ \hline
+   1    & 1   & 1   & 具有两级转换和保护的VS级访问。HS级MXR位使任何可执行页面都可读。{\tt vsstatus}.MXR使那些在VS翻译阶段标记为可执行的页面具有可读性，但只有在宾客物理翻译阶段才具有可读性。{\tt vsstatus}.SUM代替HS级SUM位。VS-level access with two-stage translation and protection. The HS-level MXR bit makes any executable page readable.  {\tt vsstatus}.MXR makes readable those pages marked executable at the VS translation stage, but only if readable at the guest-physical translation stage.  {\tt vsstatus}.SUM applies instead of the HS-level SUM bit. \\ \hline
+ \end{tabular}
+\end{center}
+\caption{在显示内存访问的翻译和保护中，MPRV的影响。
+%   Effect of MPRV on the translation and protection of explicit
+% memory accesses.
+}
+\label{h-mprv}
+\end{table*}
+
+MPRV不会影响虚拟机加载/存储指令、HLV、HLVX和HSV。
+这些指令的显式加载和存储总是像V=1，并且名义上的特权模式是{\tt hstatus}.SPVP一样，覆盖了MPRV。
+% MPRV does not affect the virtual-machine load/store instructions, HLV,
+% HLVX, and HSV.
+% The explicit loads and stores of these instructions always act as though
+% V=1 and the nominal privilege mode were {\tt hstatus}.SPVP, overriding MPRV.
+
+{\tt mstatus}寄存器是HS级{\tt sstatus}寄存器的超集，但不是{\tt vsstatus}的超集。
+% The {\tt mstatus} register is a superset of the HS-level {\tt sstatus}
+% register but is not a superset of {\tt vsstatus}.
+
+\FloatBarrier
+
+\subsection{机器中断代理寄存器（{\tt mideleg}）}
+% \subsection{Machine Interrupt Delegation Register ({\tt mideleg})}
+
+当实现超级监管器拓展时，{\tt mideleg}的第10、6和2位(对应于标准VS级中断)都是只读的。
+此外，如果实现了任何宾客外部中断(GEILEN是非零)，{\tt mideleg}的12位(对应于监管级宾客外部中断)也是只读的。
+VS级中断和宾客外部中断总是从M模式委托到HS模式。
+% When the hypervisor extension is implemented, bits 10, 6, and 2 of
+% {\tt mideleg} (corresponding to the standard VS-level interrupts) are
+% each read-only one.
+% Furthermore, if any guest external interrupts are implemented (GEILEN is
+% nonzero), bit~12 of {\tt mideleg} (corresponding to supervisor-level
+% guest external interrupts) is also read-only one.
+% VS-level interrupts and guest external interrupts are always delegated
+% past M-mode to HS-mode.
+
+对于{\tt mideleg}为零的位，{\tt hideleg}、{\tt hip}和{\tt hie}中相应的位为只读零。
+% For bits of {\tt mideleg} that are zero, the corresponding bits in
+% {\tt hideleg}, {\tt hip}, and {\tt hie} are read-only zeros.
+
+\subsection{机器中断寄存器（{\tt mip}和{\tt mie}）}
+% \subsection{Machine Interrupt Registers ({\tt mip} and {\tt mie})}
+
+超级监管器拓展为超级监管器添加的中断提供了寄存器{\tt mip}和{\tt mie}额外的活动位。
+图\ref{hypervisor-mipreg-standard}和\ref{hypervisor-mipreg-standard}显示了实现了超级监管器拓展时，
+寄存器{\tt mip}和{\tt mie}的标准部分(位15:0)。
+% The hypervisor extension gives registers {\tt mip} and {\tt mie}
+% additional active bits for the hypervisor-added interrupts.
+% Figures \ref{hypervisor-mipreg-standard} and
+% \ref{hypervisor-miereg-standard} show the standard portions (bits 15:0)
+% of registers {\tt mip} and {\tt mie} when the hypervisor extension is
+% implemented.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{Yccccccccccccc}
+\instbitrange{15}{13} &
+\instbit{12} &
+\instbit{11} &
+\instbit{10} &
+\instbit{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbit{4} &
+\instbit{3} &
+\instbit{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{SGEIP} &
+\multicolumn{1}{c|}{MEIP} &
+\multicolumn{1}{c|}{VSEIP} &
+\multicolumn{1}{c|}{SEIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{MTIP} &
+\multicolumn{1}{c|}{VSTIP} &
+\multicolumn{1}{c|}{STIP} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{MSIP} &
+\multicolumn{1}{c|}{VSSIP} &
+\multicolumn{1}{c|}{SSIP} &
+\multicolumn{1}{c|}{0} \\
+\hline
+3 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{{\tt mip}的标准部分（0-15位）。
+  % Standard portion (bits 15:0) of {\tt mip}.
+  }
+\label{hypervisor-mipreg-standard}
+\end{figure*}
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{Yccccccccccccc}
+\instbitrange{15}{13} &
+\instbit{12} &
+\instbit{11} &
+\instbit{10} &
+\instbit{9} &
+\instbit{8} &
+\instbit{7} &
+\instbit{6} &
+\instbit{5} &
+\instbit{4} &
+\instbit{3} &
+\instbit{2} &
+\instbit{1} &
+\instbit{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{SGEIE} &
+\multicolumn{1}{c|}{MEIE} &
+\multicolumn{1}{c|}{VSEIE} &
+\multicolumn{1}{c|}{SEIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{MTIE} &
+\multicolumn{1}{c|}{VSTIE} &
+\multicolumn{1}{c|}{STIE} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{MSIE} &
+\multicolumn{1}{c|}{VSSIE} &
+\multicolumn{1}{c|}{SSIE} &
+\multicolumn{1}{c|}{0} \\
+\hline
+3 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{ {\tt mie}的标准部分（0-15位）。
+  % Standard portion (bits 15:0) of {\tt mie}.
+  }
+\label{hypervisor-miereg-standard}
+\end{figure*}
+
+{\tt mip}中的SGEIP、VSEIP、VSTIP和VSSIP位是超级监管器CSR {\tt hip}中相同位的别名，
+而{\tt mie}中的SGEIE、VSEIE、VSTIE和VSSIE位是{\tt hie}中相同位的别名。
+% Bits SGEIP, VSEIP, VSTIP, and VSSIP in {\tt mip} are aliases for the same bits
+% in hypervisor CSR {\tt hip}, while SGEIE, VSEIE, VSTIE, and VSSIE in {\tt mie}
+% are aliases for the same bits in {\tt hie}.
+
+\subsection{机器第二陷入值寄存器（{\tt mtval2}）}
+% \subsection{Machine Second Trap Value Register ({\tt mtval2})}
+
+{\tt mtval2}寄存器是一个MXLEN位的读/写寄存器，其格式如图~\ref{mtval2reg}所示。
+当一个陷入进入M模式时，{\tt mtval2}与{\tt mtval}一起被写入额外的异常相关的信息，以协助软件处理该陷入。
+% The {\tt mtval2} register is an MXLEN-bit read/write register formatted
+% as shown in Figure~\ref{mtval2reg}.
+% When a trap is taken into M-mode, {\tt mtval2} is written with additional
+% exception-specific information, alongside {\tt mtval}, to assist software
+% in handling the trap.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{MXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt mtval2} \\
+\hline
+MXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{机器第二陷入值寄存器（{\tt mtval2}）。
+  % Machine second trap value register ({\tt mtval2}).
+  }
+\label{mtval2reg}
+\end{figure*}
+
+当宾客页面错误异常进入M模式时，{\tt mtval2}用0或出错的宾客物理地址右移2位写入。
+对于其他的陷入，{\tt mtval2}被设置为零，但是未来的标准或扩展可能会为其他的陷入重新定义{\tt mtval2}的设置。
+% When a guest-page-fault trap is taken into M-mode, {\tt mtval2} is
+% written with either zero or the guest physical address that faulted,
+% shifted right by 2~bits.
+% For other traps, {\tt mtval2} is set to zero, but a future standard or
+% extension may redefine {\tt mtval2}'s setting for other traps.
+
+如果宾客页面错误是由于第一阶段(VS阶段)地址翻译期间的隐式内存访问造成的，
+那么写入{\tt mtval2}的宾客物理地址就是发生错误的隐式内存访问的物理地址。
+CSR {\tt mtinst}中提供了其他信息来消除这种情况的歧义。
+% If a guest-page fault is due to an implicit memory access during
+% first-stage (VS-stage) address translation, a guest physical address
+% written to {\tt mtval2} is that of the implicit memory access that
+% faulted.
+% Additional information is provided in CSR {\tt mtinst} to disambiguate
+% such situations.
+
+否则，对于导致宾客页面错误的加载和存储错误，{\tt mtval2}中的非零宾客物理地址对应于由{\tt mtval}中的虚拟地址指示的访问错误部分。
+对于具有变长指令的系统上的指令宾客页面错误，非零{\tt mtval2}对应于由{\tt mtval}中的虚拟地址表示的指令的错误部分。
+% Otherwise, for misaligned loads and stores that cause guest-page faults,
+% a nonzero guest physical address in {\tt mtval2} corresponds to the
+% faulting portion of the access as indicated by the virtual address in
+% {\tt mtval}.
+% For instruction guest-page faults on systems with variable-length
+% instructions, a nonzero {\tt mtval2} corresponds to the faulting portion
+% of the instruction as indicated by the virtual address in {\tt mtval}.
+
+{\tt mtval2}是一个\warl\ 寄存器，它必须能够容纳零，并且可能只能容纳其他动移2位的宾客物理地址的任意子集(如果有的话)。
+% {\tt mtval2} is a \warl\ register that must be able to hold zero and may
+% be capable of holding only an arbitrary subset of other 2-bit-shifted
+% guest physical addresses, if any.
+
+\subsection{机器陷入指令寄存器（{\tt mtinst}）}
+% \subsection{Machine Trap Instruction Register ({\tt mtinst})}
+
+{\tt mtinst}寄存器是一个MXLEN位的读/写寄存器，其格式如图~\ref{mtinstreg}所示。
+当一个陷入进入M模式时，{\tt mtinst}被写入一个值，如果该值非零，则提供陷入指令的信息，以协助软件处理该陷入。
+可能在陷入中写入{\tt mtinst}的值记录在Section~\ref{sec:tinst-vals}中。
+% The {\tt mtinst} register is an MXLEN-bit read/write register formatted
+% as shown in Figure~\ref{mtinstreg}.
+% When a trap is taken into M-mode, {\tt mtinst} is written with a value
+% that, if nonzero, provides information about the instruction that
+% trapped, to assist software in handling the trap.
+% The values that may be written to {\tt mtinst} on a trap are documented
+% in Section~\ref{sec:tinst-vals}.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}J}
+\instbitrange{MXLEN-1}{0} \\
+\hline
+\multicolumn{1}{|c|}{\tt mtinst} \\
+\hline
+MXLEN \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{机器陷入指令寄存器（{\tt mtinst}）。
+  % Machine trap instruction register ({\tt mtinst}).
+  }
+\label{mtinstreg}
+\end{figure*}
+
+{\tt mtinst} is a \warl\ register that need only be able to hold the
+values that the implementation may automatically write to it on a trap.
+
+\section{两阶段地址翻译}
+% \section{Two-Stage Address Translation}
+\label{sec:two-stage-translation}
+
+如果当前的虚拟模式V是1时，两阶段地址翻译和保护就开始生效。
+% Whenever the current virtualization mode V is 1,
+% two-stage address translation and protection is in
+% effect.
+对于任何虚拟内存访问，原始的虚拟地址是在第一阶段被转化为{\em 宾客物理地址}。这个VS级地址翻译过程被被{\tt vsatp}寄存器控制。
+% For any virtual memory access, the original virtual address is
+% converted in the first stage
+% by VS-level address translation, as controlled by the {\tt vsatp}
+% register, into a {\em guest physical address}.
+宾客物理地址是在第二阶段被转化为监管级物理地址。这个宾客物理地址翻译的过程被{\tt hgatp}寄存器控制。
+% The guest physical address is then converted
+% in the second stage by guest physical address
+% translation, as controlled by the {\tt hgatp} register, into a supervisor
+% physical address.
+这两个阶段也被称为VS阶段翻译和G阶段翻译。
+尽管当V=1时没有机会可以关掉两阶段地址翻译，但是可以通过为相应的控制寄存器（{\tt vsatp} 或 {\tt hgatp}）置零，
+有效的关掉相对应的翻译阶段。
+% The two stages are known also as VS-stage and G-stage translation.
+% Although there is no option to disable two-stage address translation when V=1,
+% either stage of translation can be effectively disabled by zeroing the
+% corresponding {\tt vsatp} or {\tt hgatp} register.
+
+{\tt vsstatus}的MXR域（让只是可执行的页可读）只会覆盖VS阶段页保护。
+在VS级别设置MXR不会覆盖宾客物理页保护。然而，在HS级别设置MXR，会覆盖VS阶段和G阶段的只可执行权限。
+% The {\tt vsstatus} field MXR, which makes execute-only pages readable, only
+% overrides VS-stage page protection.
+% Setting MXR at VS-level does not override guest-physical page protections.
+% Setting MXR at HS-level, however, overrides both VS-stage and G-stage
+% execute-only permissions.
+
+当V=1时，平常绕过地址翻译的内存访问只受G阶段内存翻译的约束。
+% When V=1, memory accesses that would normally bypass address translation are
+% subject to G-stage address translation alone.
+这包含支持VS阶段地址翻译的内存访问，例如读写VS级别页表。
+% This includes memory accesses made in support of VS-stage address translation,
+% such as reads and writes of VS-level page tables.
+
+机器级物理内存保护应用于监管级物理地址，并且在任何虚拟模式下都生效。
+% Machine-level physical memory protection applies to supervisor physical
+% addresses and is in effect regardless of virtualization mode.
+
+\subsection{宾客物理地址翻译}
+% \subsection{Guest Physical Address Translation}
+\label{sec:guest-addr-translation}
+
+从宾客物理地址到监管级物理地址的映射被{\tt hgatp}控制状态寄存器所控制。（第~\ref{sec:hgatp}节）。
+% The mapping of guest physical addresses to supervisor physical addresses is
+% controlled by CSR {\tt hgatp} (Section~\ref{sec:hgatp}).
+
+当被{\tt hgatp}的MODE域选择的地址翻译方案是裸机（Bare）时，宾客物理地址与监管级物理地址一致，没有任何修改，并且
+没有内存保护应用在这个微小的从宾客物理地址到监管级物理地址的翻译过程。
+% When the address translation scheme selected by the MODE field of {\tt hgatp}
+% is Bare, guest physical addresses are equal to supervisor physical addresses
+% without modification, and no memory protection applies in the trivial
+% translation of guest physical addresses to supervisor physical addresses.
+
+当{\tt hgatp}.MODE指定了一个翻译模式（Sv32x4、Sv39x4、Sv48x4或Sv57x4），G阶段地址翻译是
+普通基于页的虚拟地址翻译方案（Sv32、Sv39、Sv48或Sv57）的一个变体。
+% When {\tt hgatp}.MODE specifies a translation scheme of Sv32x4, Sv39x4,
+% Sv48x4, or Sv57x4, G-stage address translation is a variation on the usual
+% page-based virtual address translation scheme of Sv32, Sv39, Sv48, or Sv57,
+% respectively.
+在这种情况下，输入地址的大小被拓宽两位（变成34，41，50，或59位）。
+% In each case, the size of the incoming address is widened by 2~bits (to 34, 41,
+% 50, or 59 bits).
+为了容纳额外的2位，根页表(仅)扩展了4倍，为16KiB，而不是通常的4KiB。
+为了匹配其更大的尺寸，根页表还必须对齐到16KiB边界，而不是通常的4KiB页面边界。
+除特别说明外，所有其他方面的Sv32、Sv39、Sv48或Sv57均不变地用于G阶段翻译。
+% To accommodate the 2~extra bits, the root page table (only) is expanded by a
+% factor of four to be 16~KiB instead of the usual 4~KiB.
+% Matching its larger size, the root page table also must be aligned to a 16~KiB
+% boundary instead of the usual 4~KiB page boundary.
+% Except as noted, all other aspects of Sv32, Sv39, Sv48, or Sv57 are adopted
+% unchanged for G-stage translation.
+非根页表和所有页表实体（PTE）有相同的格式，描述在第\ref{sec:sv32}，\ref{sec:sv39}，\ref{sec:sv48}，和~\ref{sec:sv57}节。
+% Non-root page tables and all page table entries (PTEs) have the same formats as
+% documented in Sections \ref{sec:sv32}, \ref{sec:sv39}, \ref{sec:sv48},
+% and~\ref{sec:sv57}.
+
+对于Sv32x4而言，传入的宾客物理地址被划分为一个虚拟页号（VPN）和页偏移，如图~\ref{sv32x4va}所示。
+这种划分方式与图~\ref{sv32va}（页~\pageref{sv32va}）描述的Sv32虚拟地址相同，除了在VPN[1]高位的多了两位。
+（注意：宾客物理地址划分的域也与Sv32分配给物理地址的结构一一对应，如图~\ref{rv32va}所示。）
+% For Sv32x4, an incoming guest physical address is partitioned into a virtual
+% page number (VPN) and page offset as shown in Figure~\ref{sv32x4va}.
+% This partitioning is identical to that for an Sv32 virtual address as depicted
+% in Figure~\ref{sv32va} (page~\pageref{sv32va}), except with 2 more bits at the
+% high end in VPN[1].
+% (Note that the fields of a partitioned guest physical address also correspond
+% one-for-one with the structure that Sv32 assigns to a physical address,
+% depicted in Figure~\ref{rv32va}.)
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}E@{}O@{}E}
+\instbitrange{33}{22} &
+\instbitrange{21}{12} &
+\instbitrange{11}{0} \\
+\hline
+\multicolumn{1}{|c|}{VPN[1]} &
+\multicolumn{1}{c|}{VPN[0]} &
+\multicolumn{1}{c|}{page offset} \\
+\hline
+12 & 10 & 12 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Sv32x4 虚拟地址（宾客物理地址）。
+% virtual address (guest physical address).
+}
+\label{sv32x4va}
+\end{figure*}
+
+对于Sv39x4而言，传入的宾客物理地址被划分为如图~\ref{sv39x4va}所示。
+这种划分方式与图~\ref{sv39va}（页~\pageref{sv39va}）描述的Sv39虚拟地址相同，除了在VPN[2]高位的多了两位。
+地址63:41位必须全部为零，否则一个宾客页错误异常将会发生。
+% For Sv39x4, an incoming guest physical address is partitioned as shown in
+% Figure~\ref{sv39x4va}.
+% This partitioning is identical to that for an Sv39 virtual address as depicted
+% in Figure~\ref{sv39va} (page~\pageref{sv39va}), except with 2 more bits at the
+% high end in VPN[2].
+% Address bits 63:41 must all be zeros, or else a guest-page-fault
+% exception occurs.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}E@{}O@{}O@{}O}
+\instbitrange{40}{30} &
+\instbitrange{29}{21} &
+\instbitrange{20}{12} &
+\instbitrange{11}{0} \\
+\hline
+\multicolumn{1}{|c|}{VPN[2]} &
+\multicolumn{1}{c|}{VPN[1]} &
+\multicolumn{1}{c|}{VPN[0]} &
+\multicolumn{1}{c|}{page offset} \\
+\hline
+11 & 9 & 9 & 12 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Sv39x4虚拟地址（宾客物理地址）。
+%  virtual address (guest physical address).
+ }
+\label{sv39x4va}
+\end{figure*}
+
+对于Sv48x4而言，传入的宾客物理地址被划分为如图~\ref{sv48x4va}所示。
+这种划分方式与图~\ref{sv48va}（页~\pageref{sv48va}）描述的Sv39虚拟地址相同，除了在VPN[3]高位的多了两位。
+地址63:50位必须全部为零，否则一个宾客页错误异常将会发生。
+% For Sv48x4, an incoming guest physical address is partitioned as shown in
+% Figure~\ref{sv48x4va}.
+% This partitioning is identical to that for an Sv48 virtual address as depicted
+% in Figure~\ref{sv48va} (page~\pageref{sv48va}), except with 2 more bits at the
+% high end in VPN[3].
+% Address bits 63:50 must all be zeros, or else a guest-page-fault
+% exception occurs.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}E@{}O@{}O@{}O@{}O}
+\instbitrange{49}{39} &
+\instbitrange{38}{30} &
+\instbitrange{29}{21} &
+\instbitrange{20}{12} &
+\instbitrange{11}{0} \\
+\hline
+\multicolumn{1}{|c|}{VPN[3]} &
+\multicolumn{1}{c|}{VPN[2]} &
+\multicolumn{1}{c|}{VPN[1]} &
+\multicolumn{1}{c|}{VPN[0]} &
+\multicolumn{1}{c|}{page offset} \\
+\hline
+11 & 9 & 9 & 9 & 12 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Sv48x4虚拟地址（宾客物理地址）。
+%  virtual address (guest physical address).
+ }
+\label{sv48x4va}
+\end{figure*}
+
+对于Sv57x4而言，传入的宾客物理地址被划分为如图~\ref{sv57x4va}所示。
+这种划分方式与图~\ref{sv57va}（页~\pageref{sv57va}）描述的Sv39虚拟地址相同，除了在VPN[4]高位的多了两位。
+地址63:59位必须全部为零，否则一个宾客页错误异常将会发生。
+% For Sv57x4, an incoming guest physical address is partitioned as shown in
+% Figure~\ref{sv57x4va}.
+% This partitioning is identical to that for an Sv57 virtual address as depicted
+% in Figure~\ref{sv57va} (page~\pageref{sv57va}), except with 2 more bits at the
+% high end in VPN[4].
+% Address bits 63:59 must all be zeros, or else a guest-page-fault
+% exception occurs.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}S@{}R@{}R@{}R@{}R@{}S}
+\instbitrange{58}{48} &
+\instbitrange{47}{39} &
+\instbitrange{38}{30} &
+\instbitrange{29}{21} &
+\instbitrange{20}{12} &
+\instbitrange{11}{0} \\
+\hline
+\multicolumn{1}{|c|}{VPN[4]} &
+\multicolumn{1}{c|}{VPN[3]} &
+\multicolumn{1}{c|}{VPN[2]} &
+\multicolumn{1}{c|}{VPN[1]} &
+\multicolumn{1}{c|}{VPN[0]} &
+\multicolumn{1}{c|}{page offset} \\
+\hline
+11 & 9 & 9 & 9 & 9 & 12 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Sv57x4虚拟地址（宾客物理地址）。
+% virtual address (guest physical address).
+}
+\label{sv57x4va}
+\end{figure*}
+
+\begin{commentary}
+  RV32的基于页面的G阶段地址转换方案--Sv32x4，被定义为支持34位宾客物理地址，
+  因此RV32超级监管器虚拟化真实32位RISC-V计算机的能力不需要受到限制，即使是那些具有33位或34位物理地址的计算机。
+  如果它碰巧使用33位或34位物理地址，这可能包括机器虚拟化自身的可能性。
+  将根页表的大小和对齐方式乘以4是扩展Sv32以覆盖34位地址的最简便的方法。
+  对于一个不必要的大根页表，可能的12KiB的浪费对于大多数(可能所有)实际使用的后果是微不足道的。
+% The page-based G-stage address translation scheme for RV32, Sv32x4, is
+% defined to support a 34-bit guest physical address so that an RV32 hypervisor
+% need not be limited in its ability to virtualize real 32-bit RISC-V machines,
+% even those with 33-bit or 34-bit physical addresses.
+% This may include the possibility of a machine virtualizing itself, if it
+% happens to use 33-bit or 34-bit physical addresses.
+% Multiplying the size and alignment of the root page table by a factor of four
+% is the cheapest way to extend Sv32 to cover a 34-bit address.
+% The possible wastage of 12~KiB for an unnecessarily large root page table is
+% expected to be of negligible consequence for most (maybe all) real uses.
+
+对于拥有四倍于虚拟地址空间的物理地址空间的虚拟机，一致的虚拟化能力被认为对RV64也有一定的用处。
+例如，对于实现39位虚拟地址(Sv39)的机器，这允许超级监管器拓展支持最多41位的宾客物理地址空间，
+而不需要对48位虚拟地址(Sv48)提供硬件支持，也不需要使用影子页表来模拟更大的地址空间。
+% A consistent ability to virtualize machines having as much as four times the
+% physical address space as virtual address space is believed to be of some
+% utility also for RV64.
+% For a machine implementing 39-bit virtual addresses (Sv39), for example, this
+% allows the hypervisor extension to support up to a 41-bit guest physical
+% address space without either necessitating hardware support for 48-bit virtual
+% addresses (Sv48) or falling back to emulating the larger address space using
+% shadow page tables.
+\end{commentary}
+
+Sv32x4、Sv39x4、Sv48x4或Sv57x4宾客物理地址的转换，使用与Sv32、Sv39、Sv48或Sv57相同的算法来完成，如第~\ref{sv32algorithm}节所示，除了:
+% The conversion of an Sv32x4, Sv39x4, Sv48x4, or Sv57x4 guest physical address is
+% accomplished with the same algorithm used for Sv32, Sv39, Sv48, or Sv57, as
+% presented in Section~\ref{sv32algorithm}, except that:
+\begin{compactitem}
+\item
+{\tt hgatp}替代了通常的{\tt satp}；
+% {\tt hgatp} substitutes for the usual {\tt satp};
+\item
+只有当有效的特权级别为VS模式或VU模式时，地址翻译才可以开始。
+% for the translation to begin, the effective privilege mode must be VS-mode or
+% VU-mode;
+\item
+在检查U位时，当前特权模式始终被为U模式；而且
+% when checking the U~bit, the current privilege mode is always taken to be
+% U-mode; and
+\item
+引发宾客页面错误异常，而不是普通的页面错误异常。
+% guest-page-fault exceptions are raised instead of regular page-fault
+% exceptions.
+\end{compactitem}
+
+对于G级地址转换，所有内存访问(包括为VS阶段地址转换而访问数据结构的访问)都被认为是用户级访问，就像在U模式下执行一样。
+访问类型权限——可读、可写或可执行——在G阶段的翻译中被检查（与VS阶段的翻译相同）。
+对于支持VS阶段地址转换(例如读/写VS级页表)的内存访问，检查权限就像检查加载或存储，而不是检查原始访问类型。
+但是，对于原始访问类型(指令、加载或存储/AMO)，总是报告任何异常。
+% For G-stage address translation, all memory accesses (including those
+% made to access data structures for VS-stage address translation) are considered
+% to be user-level accesses, as though executed in U-mode.
+% Access type permissions---readable, writable, or executable---are checked
+% during G-stage translation the same as for VS-stage
+% translation.
+% For a memory access made to support VS-stage address translation (such as to
+% read/write a VS-level page table), permissions are checked as though for a load
+% or store, not for the original access type.
+% However, any exception is always reported for the original access type
+% (instruction, load, or store/AMO).
+
+所有G阶段的PTE中的G位都是为将来的标准使用而保留的。
+在它的使用被标准扩展定义之前，为了向前兼容，它应该被软件清除，并且必须被硬件忽略。
+% The G~bit in all G-stage PTEs is reserved for future standard use.  Until its
+% use is defined by a standard extension, it should be cleared
+% by software for forward compatibility, and must be ignored by hardware.
+
+\begin{commentary}
+
+  G级地址转换使用与常规地址转换相同的PTE格式，甚至包括U位，因为G阶段翻译和常规HS级地址转换之间可能共享一些(或所有)页表。
+  不管这种用法是否会变得普遍，我们选择不排除它。
+% G-stage address translation uses the identical format for PTEs as
+% regular address translation, even including the U~bit, due to the
+% possibility of sharing some (or all) page tables between G-stage
+% translation and regular HS-level address translation.
+% Regardless of whether this usage will ever become common, we chose not to
+% preclude it.
+\end{commentary}
+
+\subsection{宾客页错误}
+% \subsection{Guest-Page Faults}
+
+宾客页错误陷入在{\tt medeleg}的控制可以从M模式代理到HS模式，但是不能代理到其他特权模式。
+% Guest-page-fault traps may be delegated from M-mode to HS-mode under the
+% control of CSR {\tt medeleg}, but cannot be delegated to other privilege
+% modes.
+在宾客页错误中，CSR {\tt mtval}或{\tt stval}像往常一样将出错的宾客虚拟地址写入，
+而{\tt mtval2}或{\tt htval}则将零或出错客户物理地址写入后，右移两位。
+% On a guest-page fault, CSR {\tt mtval} or {\tt stval} is written with the
+% faulting guest virtual address as usual, and {\tt mtval2} or {\tt htval} is
+% written either with zero or with the faulting guest physical address,
+% shifted right by 2~bits.
+CSR {\tt mtinst}或{\tt htinst}同时也可能将出错指令或访问的其他原因的信息写入，就像在第~\ref{sec:tinst-vals}节解释的那样。
+% CSR {\tt mtinst} or {\tt htinst} may also be written with information
+% about the faulting instruction or other reason for the access, as
+% explained in Section~\ref{sec:tinst-vals}.
+
+当指令获取或未对齐的内存访问跨越页面边界时，将会涉及到两种不同的地址转换。
+当客户页错误出现在这种情况下时，写入{\tt mtval}/{\tt stval}的错误虚拟地址与普通页面错误所需的虚拟地址相同。
+因此，如果页边界上的字节在被访问的字节中，则出错的虚拟地址可能是高于指令原始虚拟地址的页边界地址。
+% When an instruction fetch or a misaligned memory access straddles a page
+% boundary, two different address translations are involved.
+% When a guest-page fault occurs in such a circumstance, the faulting
+% virtual address written to {\tt mtval}/{\tt stval} is the same as would
+% be required for a regular page fault.
+% Thus, the faulting virtual address may be a page-boundary address that is
+% higher than the instruction's original virtual address, if the byte at
+% that page boundary is among the accessed bytes.
+
+当一个宾客页错误不是由于在VS阶段地址翻译的隐式内存访问所导致时，
+写入{\tt mtval2}/{\tt htval}的非零宾客物理地址应与写入{\tt mtval}/{\tt stval}的确切虚拟地址相对应。
+% When a guest-page fault is not due to an implicit
+% memory access for VS-stage address translation,
+% a nonzero guest physical address written to
+% {\tt mtval2}/{\tt htval} shall correspond
+% to the exact virtual address written to
+% {\tt mtval}/{\tt stval}.
+
+\subsection{内存管理屏障}
+% \subsection{Memory-Management Fences}
+
+SFENCE.VMA指令的行为受当前虚拟模式V的影响。当V=0时，虚拟地址参数是一个HS级虚拟地址，ASID参数是一个HS级ASID。
+指令序列只存储到带有随后的HS级地址翻译的HS级地址翻译结构中。
+% The behavior of the SFENCE.VMA instruction is affected by the current
+% virtualization mode V.  When V=0, the virtual-address argument is an HS-level
+% virtual address, and the ASID argument is an HS-level ASID.
+% The instruction orders stores only to HS-level address-translation structures
+% with subsequent HS-level address translations.
+
+当V=1时，SFENCE.VMA的虚拟地址参数是当前虚拟机的宾客虚拟地址，其ASID参数是在当前虚拟机的VS级ASID。
+当前虚拟机由CSR {\tt hgatp}的VMID字段标识，有效的ASID可以认为是该VMID与vs级ASID的组合。
+SFENCE.VMA指令序列仅存储到，在同一虚拟机中，具有后续的VS阶段地址的，VS级地址转换结构中，
+例如：仅当{\tt hgatp}.VMID与SFENCE.VMA被执行时才相同。
+% When V=1, the virtual-address argument to SFENCE.VMA is a guest virtual
+% address within the current virtual machine, and the ASID argument is a VS-level
+% ASID within the current virtual machine.
+% The current virtual machine is identified by the VMID field of CSR {\tt hgatp},
+% and the effective ASID can be considered to be the combination of this VMID
+% with the VS-level ASID.
+% The SFENCE.VMA instruction orders stores only to the VS-level
+% address-translation structures with subsequent VS-stage address translations
+% for the same virtual machine, i.e., only when {\tt hgatp}.VMID is the same as
+% when the SFENCE.VMA executed.
+
+超级监管器指令HFENCE.VVMA和HFENCE.GVMA提供额外的内存管理屏障，去补充SFENCE.VMA。
+这些指令在第~\ref{sec:hfence.vma}节中描述。
+% Hypervisor instructions HFENCE.VVMA and HFENCE.GVMA provide additional
+% memory-management fences to complement SFENCE.VMA.
+% These instructions are described in Section~\ref{sec:hfence.vma}.
+
+第~\ref{pmp-vmem}节讨论了物理内存保护（PMP）和基于页地址翻译的交互过程。
+需要注意的是，当PMP设置的修改影响到保存页表的物理内存或页表所指向的物理内存时，M模式软件必须将PMP设置与虚拟内存系统同步。
+对于HS级别的地址转换，是通过在M模式下执行SFENCE.VMA指令（使{\em rs1}={\tt x0}和{\em rs2}={\tt x0}）来完成的。
+还需要同步G阶段和VS阶段的数据结构。
+% Section~\ref{pmp-vmem} discusses the intersection between physical memory
+% protection (PMP) and page-based address translation.
+% It is noted there that, when PMP settings are modified in a manner that affects
+% either the physical memory that holds page tables or the physical memory to
+% which page tables point, M-mode software must synchronize the PMP settings with
+% the virtual memory system.
+% For HS-level address translation, this is accomplished by executing in M-mode
+% an SFENCE.VMA instruction with {\em rs1}={\tt x0} and {\em rs2}={\tt x0}, after
+% the PMP CSRs are written.
+% Synchronization with G-stage and VS-stage data structures is also needed.
+执行一个HFENCE.GVMA指令（{\em rs1}={\tt x0}和{\em rs2}={\tt x0}）足以刷新所有G阶段和
+VS阶段地址翻译缓存项，这些缓存项已经缓存了与最终已翻译的监管级物理地址对应的PMP设置。一个HFENCE.VVMA指令不是必需的。
+% Executing an HFENCE.GVMA instruction with {\em rs1}={\tt x0} and
+% {\em rs2}={\tt x0} suffices to flush all G-stage or VS-stage
+% address-translation cache entries that have cached PMP settings
+% corresponding to the final translated supervisor physical address.
+% An HFENCE.VVMA instruction is not required.
+
+\section{陷入}
+% \section{Traps}
+
+\subsection{陷入原因编码}
+% \subsection{Trap Cause Codes}
+
+超级监管器拓展扩展了陷入原因编码。表~\ref{hcauses}列出了在实现超级监管器拓展时可能的M模式和HS模式陷入原因的代码。
+为VS级中断(中断2、6、10)、监管级宾客外部中断(中断12)、虚拟指令异常(异常22)和宾客页面错误(异常20、21、23)添加了代码。
+此外，来自VS模式的环境调用被分配为原因10，而来自HS模式或S模式的环境调用通常使用原因9。
+% The hypervisor extension augments the trap cause encoding.
+% Table~\ref{hcauses} lists the possible M-mode and HS-mode trap cause
+% codes when the hypervisor extension is implemented.
+% Codes are added for VS-level interrupts (interrupts 2, 6,~10), for
+% supervisor-level guest external interrupts (interrupt~12), for virtual
+% instruction exceptions (exception~22), and for guest-page faults
+% (exceptions 20, 21,~23).
+% Furthermore, environment calls from VS-mode are assigned cause 10,
+% whereas those from HS-mode or S-mode use cause~9 as usual.
+
+\begin{table*}[p]
+\begin{center}
+\begin{tabular}{|r|r|l|l|}
+  \hline
+  中断      & 异常编码        & 描述 \\
+  \hline
+  1         & 0               & {\em 保留的} \\
+  1         & 1               & 监管级软件中断  Supervisor software interrupt \\
+  1         & 2               & 虚拟监管级软件中断  Virtual supervisor software interrupt \\
+  1         & 3               & 机器软件中断  Machine software interrupt \\ \hline
+  1         & 4               & {\em 保留的} \\
+  1         & 5               & 监管级时钟中断   Supervisor timer interrupt \\
+  1         & 6               & 虚拟监管级时钟中断  Virtual supervisor timer interrupt \\
+  1         & 7               & 机器时钟中断   Machine timer interrupt \\ \hline
+  1         & 8               & {\em 保留的} \\
+  1         & 9               & 监管级外部中断  Supervisor external interrupt \\
+  1         & 10              & 虚拟监管级外部中断  Virtual supervisor external interrupt \\
+  1         & 11              & 机器外部中断  Machine external interrupt \\ \hline
+  1         & 12              & 监管级宾客外部中断  Supervisor guest external interrupt \\
+  1         & 13--15          & {\em 保留的} \\
+  1         & $\ge$16         & {\em 指定用于平台或定制使用} \\ \hline
+  0         & 0               & 指令地址未对齐  Instruction address misaligned \\
+  0         & 1               & 指令访问错误  Instruction access fault \\
+  0         & 2               & 非法指令 Illegal instruction \\
+  0         & 3               & 断点  Breakpoint \\
+  0         & 4               & 加载地址未对齐 Load address misaligned \\
+  0         & 5               & 加载访问错误  Load access fault \\
+  0         & 6               & 存储/AMO 地址未对齐  Store/AMO address misaligned \\
+  0         & 7               & 存储/AMO 访问错误  Store/AMO access fault \\
+  0         & 8               & 在U模式或VU模式发生的环境调用  Environment call from U-mode or VU-mode \\
+  0         & 9               & 在HS模式发生的的环境调用  Environment call from HS-mode \\
+  0         & 10              & 在VS模式发生的环境调用 Environment call from VS-mode \\
+  0         & 11              & 在M模式发生的环境调用  Environment call from M-mode \\
+  0         & 12              & 指令页错误  Instruction page fault \\
+  0         & 13              & 加载页错误 Load page fault \\
+  0         & 14              & {\em 保留的} \\
+  0         & 15              & 存储/AMO 页错误  Store/AMO page fault \\
+  0         & 16--19          & {\em 保留的} \\
+  0         & 20              & 指令宾客页面错误  Instruction guest-page fault \\
+  0         & 21              & 加载宾客页面错误  Load guest-page fault \\
+  0         & 22              & 虚拟指令 Virtual instruction \\
+  0         & 23              & 存储/AMO宾客页面错误  Store/AMO guest-page fault \\
+  0         & 24--31          & {\em 为自定义指定} \\
+  0         & 32--47          & {\em 保留的} \\
+  0         & 48--63          & {\em 为自定义指定} \\
+  0         & $\ge$64         & {\em 保留的} \\
+  \hline
+\end{tabular}
+\end{center}
+\caption{当超级监管器拓展被实现时，机器和监管器原因寄存器（{\tt mcause}和{\tt scause}）的值。
+%   Machine and supervisor cause register ({\tt mcause} and
+% {\tt scause}) values when the hypervisor extension is implemented.
+}
+\label{hcauses}
+\end{table*}
+
+\begin{commentary}
+  HS模式和VS模式的ECALL用不同的原因值，所以他们就可以被分别代理。
+% HS-mode and VS-mode ECALLs use different cause values so they can be delegated
+% separately.
+\end{commentary}
+
+当V=1时，如果尝试的指令是\textit{HS-qualified}，则通常会引发一个虚拟指令异常(代码22)，而不是一个非法指令异常，
+但当V=1时，由于特权不足或由于指令被监管器或超级监管器 CSR(例如{\tt scounteren}或{\tt hcounteren}明确禁用，该指令将无法执行。
+假设CSR {\tt mstatus}的TSR和TVM字段都为零，如果一条指令在HS模式下执行(对于指令的寄存器操作数的某些值)是有效的，那么它就是\textit{HS-qualified}。
+% When V=1, a virtual instruction exception (code 22) is normally
+% raised instead of an illegal instruction exception if the attempted
+% instruction is \textit{HS-qualified}
+% but is prevented from executing when V=1 either due to
+% insufficient privilege or because the instruction is expressly disabled
+% by a supervisor or hypervisor CSR such as {\tt scounteren} or {\tt hcounteren}.
+% An instruction is \textit{HS-qualified} if it would be valid to execute
+% in HS-mode (for some values of the instruction's register operands),
+% assuming fields TSR and TVM of CSR {\tt mstatus} are both zero.
+
+特殊规则适用于访问\mbox{32-位}高半分CSR的CSR指令，如{\tt cycleh}和{\tt htimedeltah}。
+当V=1和XLEN$>$32时，尝试访问high-half监管级CSR、high-half超级监管级CSR、high-halfVS级CSR或high-half非特权CSR
+总是会引发非法指令异常。
+在vs模式中，如果VU模式的XLEN大于32，则尝试访问high-half用户级的CSR(与非特权的CSR不同)总是会引发非法指令异常。
+另一方面，当V=1和XLEN=32时，如果其另一半\textit{low-half} CSR(例如\@ {\tt cycle}或{\tt htimedelta})的相同CSR指令是HS-qualified，
+那么访问high-half的S级、超级监管器、VS或非特权CSR的无效尝试将引发虚拟指令异常，而不是非法指令异常。
+同样，在VS模式中，如果VU模式的XLEN为32，如果其另一半low-half的CSR的相同CSR指令是HS-qualified，
+则访问high-half用户级CSR的无效尝试将引发虚拟指令异常，而不是非法指令异常。
+% Special rules apply for CSR instructions that access \mbox{32-bit}
+% high-half CSRs such as {\tt cycleh} and {\tt htimedeltah}.
+% When V=1 and XLEN$>$32, an attempt to access a high-half
+% supervisor-level CSR, high-half hypervisor CSR, high-half VS CSR,
+% or high-half unprivileged CSR always raises an illegal instruction
+% exception.
+% And in VS-mode, if the XLEN for VU-mode is greater than 32, an attempt
+% to access a high-half user-level CSR (distinct from an unprivileged
+% CSR) always raises an illegal instruction exception.
+% On the other hand, when V=1 and XLEN=32, an invalid attempt to access a
+% high-half S-level, hypervisor, VS, or unprivileged CSR raises a virtual
+% instruction exception instead of an illegal instruction exception
+% if the same CSR instruction for the partner \textit{low-half} CSR
+% (e.g.\@ {\tt cycle} or {\tt htimedelta}) is HS-qualified.
+% Likewise, in VS-mode, if the XLEN for VU-mode is 32, an invalid attempt
+% to access a high-half user-level CSR raises a virtual instruction
+% exception instead of an illegal instruction exception if the same CSR
+% instruction for the partner low-half CSR is HS-qualified.
+
+\begin{commentary}
+  RISC-V特权体系结构目前没有定义用户级CSR，但它们可能会通过该标准的未来版本或扩展添加。
+% The RISC-V Privileged Architecture currently defines no user-level
+% CSRs, but they might be added by a future version of this standard or
+% by an extension.
+\end{commentary}
+
+具体来说，在以下情况下引发虚拟指令异常:
+% Specifically, a virtual instruction exception is raised for the
+% following cases:
+\begin{itemize}
+
+\item
+在VS模式下，当{\tt hcounteren}中的相应位为0且{\tt mcounteren}中的相同位为1时，尝试访问non-high-half计数器CSR；
+% in VS-mode,
+% attempts to access a non-high-half counter CSR when the corresponding bit in
+% {\tt hcounteren} is~0 and the same bit in {\tt mcounteren} is~1;
+
+\item
+在VS模式下，如果XLEN=32，当{\tt hcounteren}中的相应位为0且{\tt mcounteren}中的相同位为1时，尝试访问high-half计数器CSR；
+% in VS-mode, if XLEN=32, attempts to access a high-half
+% counter CSR when the corresponding bit in {\tt hcounteren} is~0 and the
+% same bit in {\tt mcounteren} is~1;
+
+\item
+在VU模式下，当{\tt hcounteren}中的相应位为0且{\tt mcounteren}中的相同位为1时，尝试访问non-high-half计数器CSR；
+% in VU-mode, attempts to access a non-high-half counter CSR when the
+% corresponding bit in either {\tt hcounteren} or {\tt scounteren} is~0
+% and the same bit in {\tt mcounteren} is~1;
+
+\item
+在VU模式下，如果XLEN=32，当{\tt hcounteren}中的相应位为0且{\tt mcounteren}中的相同位为1时，尝试访问high-half计数器CSR；
+% in VU-mode, if XLEN=32, attempts to access a high-half counter CSR when
+% the corresponding bit in either {\tt hcounteren} or {\tt scounteren}
+% is~0 and the same bit in {\tt mcounteren} is~1;
+
+\item
+在VS模式或VU模式下，试图去执行一个超级监管级指令（HLV，HLVX，HSV，或HFENCE）；
+% in VS-mode or VU-mode,
+% attempts to execute a hypervisor instruction (HLV, HLVX, HSV, or HFENCE);
+
+\item
+在VS模式或VU模式下，假设{\tt mstatus}.TVM=0，当在HS模式下允许相同的访问(读/写)时，尝试访问一个已被实现的non-high-half超级监管级 CSR或VS级 CSR；
+% in VS-mode or VU-mode, attempts to access an implemented non-high-half
+% hypervisor CSR or VS CSR when the same access (read/write) would be
+% allowed in HS-mode, assuming {\tt mstatus}.TVM=0;
+
+\item
+在VS模式或VU模式下，假设{\tt mstatus}.TVM=0，如果XLEN=32，当在HS模式下允许对CSR的low-half的另一半进行相同的访问(读/写)时，
+尝试访问已实现的high-half超级监管器 CSR或high-halfVS级 CSR；
+% in VS-mode or VU-mode, if XLEN=32, attempts to access an implemented
+% high-half hypervisor CSR or high-half VS CSR when the same access
+% (read/write) to the CSR's low-half partner would be allowed in HS-mode,
+% assuming {\tt mstatus}.TVM=0;
+
+\item
+在VU模式下，当{\tt mstatus}.TV=0时尝试执行WFI或执行监管级指令(SRET或SFENCE)；
+% in VU-mode, attempts to execute WFI when {\tt mstatus}.TW=0, or to
+% execute a supervisor instruction (SRET or SFENCE);
+
+\item
+在VU模式下，假设{\tt mstatus}.TVM=0，当HS模式下允许相同的访问(读/写)时，尝试访问一个已被实现的non-high-half监管级CSR；
+% in VU-mode, attempts to access an implemented non-high-half supervisor
+% CSR when the same access (read/write) would be allowed in HS-mode,
+% assuming {\tt mstatus}.TVM=0;
+
+\item
+在VU模式下，假设{\tt mstatus}.TVM=0，如果XLEN=32，当在HS模式下允许访问CSR的low-half的另一半时，试图访问实现的high-half监管级CSR;
+% in VU-mode, if XLEN=32, attempts to access an implemented high-half
+% supervisor CSR when the same access to the CSR's low-half partner would
+% be allowed in HS-mode, assuming {\tt mstatus}.TVM=0;
+
+\item
+在VS模式下，当{\tt hstatus}.VTW=1和{\tt mstatus}.TW=0时，试图执行WFI（除非指令在特定于实现的限定时间内完成）；
+% in VS-mode, attempts to execute WFI when {\tt hstatus}.VTW=1 and
+% {\tt mstatus}.TW=0, unless the instruction completes within an
+% implementation-specific, bounded time;
+
+\item
+在VS模式下，当{\tt hstatus}.VTSR=1时，尝试执行SRET；并且
+in VS-mode, attempts to execute SRET when {\tt hstatus}.VTSR=1; and
+
+\item
+在VS模式下，当{\tt hstatus}.VTVM=1时，尝试执行SFENCE.VMA、SINVAL.VMA或访问{\tt satp}。
+% in VS-mode, attempts to execute an SFENCE.VMA or SINVAL.VMA instruction or to
+% access {\tt satp}, when {\tt hstatus}.VTVM=1.
+
+\end{itemize}
+对\mbox{RISC-V}特权体系结构的其他扩展可能会增加在V=1时导致虚拟指令异常的环境集。
+% Other extensions to the \mbox{RISC-V} Privileged Architecture may add
+% to the set of circumstances that cause a virtual instruction exception
+% when V=1.
+
+在虚拟指令陷入中，{\tt mtval}或{\tt stval}的编写方式与非法指令陷入相同。
+% On a virtual instruction trap, {\tt mtval} or {\tt stval} is written the
+% same as for an illegal instruction trap.
+
+\begin{commentary}
+  为了支持嵌套管理程序或出于其他原因，超级监管器必须模拟引发虚拟指令异常的指令，这种情况并不罕见。
+  通常将虚拟指令陷入直接委托给HS级的应该是机器级，因此非法指令陷入可能首先在M模式下处理，然后再有条件地（通过软件）委托给HS级。
+  因此，虚拟指令陷入通常应该比非法指令陷入处理得更快。
+% It is not unusual that hypervisors must emulate the
+% instructions that raise virtual instruction exceptions, to
+% support nested hypervisors or for other reasons.
+% Machine level is expected ordinarily to delegate virtual instruction
+% traps directly to HS-level, whereas illegal instruction traps are likely
+% to be processed first in M-mode before being conditionally delegated (by
+% software) to HS-level.
+% Consequently, virtual instruction traps are expected typically to be
+% handled faster than illegal instruction traps.
+
+当不模拟陷入指令时，超级监管器应该将虚拟指令陷入转换为宾客虚拟机的非法指令异常。
+% When not emulating the trapping instruction,
+% a hypervisor should convert a virtual
+% instruction trap into an illegal instruction exception for the guest
+% virtual machine.
+\end{commentary}
+
+\begin{commentary}
+  因为{\tt mstatus}中的TSR和TVM只影响S模式(HS模式)，所以在VS模式中确定的异常会忽略它们。
+% Because TSR and TVM in {\tt mstatus} are intended to impact only S-mode
+% (HS-mode), they are ignored for determining exceptions in VS-mode.
+\end{commentary}
+
+\begin{table*}[htbp]
+\begin{center}
+\begin{tabular}{|l|r|l|}
+  \hline
+  优先级      & Exc.\@ Code  & 描述 \\
+  \hline
+  {\em Highest} &            3 & 指令地址中断  Instruction address breakpoint \\
+  \hline
+                &              & 在指令地址翻译过程中： During instruction address translation: \\
+                &    12, 20, 1 & \quad 第一个遇到的页错误，First encountered page fault,
+                                     宾客页错误，或访问错误   guest-page fault, or access fault \\
+  \hline
+                &              & 带有物理地址的指令  With physical address for instruction: \\
+                &            1 & \quad 指令访问错误 Instruction access fault \\
+  \hline
+                &            2 & 非法指令  Illegal instruction \\
+                &           22 & 虚拟指令  Virtual instruction \\
+                &            0 & 指令地址未对齐 Instruction address misaligned \\
+                & 8, 9, 10, 11 & 环境调用  Environment call \\
+                &            3 & 环境断点  Environment break \\
+                &            3 & 加载/存储/AMO地址断点 Load/store/AMO address breakpoint \\
+  \hline
+                &              & 可选地：   Optionally: \\
+                &         4, 6 & \quad 加载/存储/AMO地址未对齐  Load/store/AMO address misaligned \\
+  \hline
+                &              & 在显示内存访问的地址翻译过程中：During address translation for an explicit
+                                   memory access: \\
+        & 13, 15, 21, 23, 5, 7 & \quad 第一次遇到页错误， First encountered page fault,
+                                   宾客页错误，或访问错误  guest-page fault, or access fault \\
+  \hline
+                &              & 带有显示内存访问的物理地址： With physical address for an explicit
+                                   memory access: \\
+                &         5, 7 & \quad 加载/存储/AMO访问错误  Load/store/AMO access fault \\
+  \hline
+                &              & 如果不是更高的优先级： If not higher priority: \\
+  {\em Lowest}  &         4, 6 & \quad 加载/存储/AMO地址未对齐 Load/store/AMO address misaligned \\
+  \hline
+\end{tabular}
+\end{center}
+\caption{当超级监管器拓展被实现时，同步异常的优先级。
+% Synchronous exception priority when the hypervisor extension is
+% implemented.%
+}
+\label{tab:HSyncExcPrio}
+\end{table*}
+
+如果一条指令可能引发多个同步异常，则表~\ref{tab:HSyncExcPrio}递减优先级顺序表示，
+在{\tt mcause}或{\tt scause}中采用并报告哪个异常。
+% If an instruction may raise multiple synchronous exceptions, the
+% decreasing priority order of Table~\ref{tab:HSyncExcPrio} indicates
+% which exception is taken and reported in {\tt mcause} or {\tt scause}.
+
+\FloatBarrier
+
+\subsection{陷入实体}
+% \subsection{Trap Entry}
+
+当陷入在HS模式或U模式下发生时，它将进入M模式，除非经过{\tt medeleg}或{\tt mideleg}的委托进入HS模式。
+当陷入发生在VS模式或VU模式时，它将进入M模式，除非经过{\tt medeleg}或{\tt mideleg}的委托进入HS模式，
+除非经过{\tt hedeleg}或{\tt hideleg}的进一步委托进入VS模式。
+% When a trap occurs in HS-mode or U-mode, it goes to M-mode, unless
+% delegated by {\tt medeleg} or {\tt mideleg}, in which case it goes to HS-mode.
+% When a trap occurs in VS-mode or VU-mode, it goes to M-mode, unless
+% delegated by {\tt medeleg} or {\tt mideleg}, in which case it goes to HS-mode,
+% unless further delegated by {\tt hedeleg} or {\tt hideleg}, in which case it
+% goes to VS-mode.
+
+当陷入进入M模式时，虚拟模式V被设置为0，{\tt mstatus}(或{\tt mstatush})中的字段MPV和MPP根据表~\ref{h-mpp}设置。
+陷入到M模式还会在{\tt mstatus}/{\tt mstatush}中写入字段GVA、MPIE和MIE，并写入CSR {\tt mepc}、{\tt mcause}、{\tt mtval}、{\tt mtval2}和{\tt mtinst}。
+% When a trap is taken into M-mode, virtualization mode V gets set to~0,
+% and fields MPV and MPP in {\tt mstatus}
+% (or {\tt mstatush}) are set according to
+% Table~\ref{h-mpp}.
+% A trap into M-mode also writes fields GVA, MPIE, and MIE in
+% {\tt mstatus}/{\tt mstatush} and writes CSRs {\tt mepc}, {\tt mcause},
+% {\tt mtval}, {\tt mtval2}, and {\tt mtinst}.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|l|c|c|}
+  \hline
+  Previous Mode & MPV & MPP \\ \hline
+  U-mode        & 0   & 0   \\
+  HS-mode       & 0   & 1   \\
+  M-mode        & 0   & 3   \\ \hline
+  VU-mode       & 1   & 0   \\
+  VS-mode       & 1   & 1   \\ \hline
+\end{tabular}
+\end{center}
+\caption{
+  在陷入到M模式之后，{\tt mstatus}/{\tt mstatush}的MPV和MPP字段。
+当陷入返回，并且MPP=3时，忽略MPV。
+%   Value of {\tt mstatus}/{\tt mstatush} fields MPV and MPP after a trap into M-mode.
+% Upon trap return, MPV is ignored when MPP=3.
+}
+\label{h-mpp}
+\end{table*}
+
+当陷入进入HS模式时，虚拟模式V设置为0，{\tt hstatus}.SPV和{\tt sstatus}.SPP根据表~\ref{h-spp}设置。
+如果在发生陷入之前V为1，{\tt hstatus}中的SPVP字段被设置为{\tt sstatus}.SPP；否则，保持SPVP不变。
+进入HS模式的陷入还将字段GVA写入{\tt hstatus}，字段SPIE和SIE写入{\tt sstatus}、CSR {\tt sepc}、{\tt scause}、{\tt stval}、{\tt htval}和{\tt htinst}。
+% When a trap is taken into HS-mode, virtualization mode V is set to~0,
+% and {\tt hstatus}.SPV and {\tt sstatus}.SPP are
+% set according to Table~\ref{h-spp}.
+% If V was 1 before the trap, field SPVP in {\tt hstatus} is set the same as
+% {\tt sstatus}.SPP;
+% otherwise, SPVP is left unchanged.
+% A trap into HS-mode also writes field GVA in {\tt hstatus}, fields
+% SPIE and SIE in {\tt sstatus}, and CSRs {\tt sepc}, {\tt scause},
+% {\tt stval}, {\tt htval}, and {\tt htinst}.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|l|c|c|}
+  \hline
+  Previous Mode & SPV & SPP \\ \hline
+  U-mode        & 0   & 0   \\
+  HS-mode       & 0   & 1   \\ \hline
+  VU-mode       & 1   & 0   \\
+  VS-mode       & 1   & 1   \\ \hline
+\end{tabular}
+\end{center}
+\caption{在陷入到HS模式之后，{\tt hstatus}的SPV字段和{\tt sstatus}的SPP字段的值。
+  % Value of {\tt hstatus} field SPV and {\tt sstatus} field SPP after a trap into HS-mode.
+  }
+\label{h-spp}
+\end{table*}
+
+当陷入进入VS模式时，{\tt vsstatus}.SPP根据表~\ref{h-vspp}设置。
+寄存器{\tt hstatus}和HS级别{\tt sstatus}未被修改，虚拟模式V保持1。
+进入VS模式的陷入还会在{\tt vsstatus}中写入字段SPIE和SIE，并写CSRs {\tt vsepc}、{\tt vscause}和{\tt vstval}。
+% When a trap is taken into VS-mode, {\tt vsstatus}.SPP is set according to
+% Table~\ref{h-vspp}.
+% Register {\tt hstatus} and the HS-level {\tt sstatus} are not modified,
+% and the virtualization mode V remains~1.
+% A trap into VS-mode also writes fields SPIE and SIE in
+% {\tt vsstatus} and writes CSRs {\tt vsepc}, {\tt vscause}, and
+% {\tt vstval}.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|l|c|}
+  \hline
+  Previous Mode & SPP \\ \hline
+  VU-mode       & 0   \\
+  VS-mode       & 1   \\ \hline
+\end{tabular}
+\end{center}
+\caption{在陷入到VS模式之后，{\tt vsstatus}的SPP字段的值。
+  % Value of {\tt vsstatus} field SPP after a trap into VS-mode.
+  }
+\label{h-vspp}
+\end{table*}
+
+\FloatBarrier
+
+\subsection{为{\tt mtinst} 或 {\tt htinst}的转换指令或伪指令}
+% \subsection{Transformed Instruction or Pseudoinstruction for {\tt mtinst} or {\tt htinst}}
+\label{sec:tinst-vals}
+
+在任何陷入到M模式或HS模式的陷入中，下面的一个值会被自动写入合适的陷入指令CSR {\tt mtinst}或{\tt htinst}中：
+% On any trap into M-mode or HS-mode, one of these values is written
+% automatically into the appropriate trap instruction CSR, {\tt mtinst} or
+% {\tt htinst}:
+\begin{tightlist}
+\item
+零；
+% zero;
+\item
+陷入指令的转换；
+% a transformation of the trapping instruction;
+\item
+一个自定义的值（只在陷入指令是不标准的情况下允许）；或
+% a custom value (allowed only if the trapping instruction is non-standard);
+% or
+\item
+一个特殊的伪指令。
+% a special pseudoinstruction.
+\end{tightlist}
+除了当一个伪指令的值是需要的（后面会描述），写入{\tt mtinst}或{\tt htinst}的值总是可是是零。
+这表明硬件不会在寄存器中为这个特殊的陷入提供任何信息。
+% Except when a pseudoinstruction value is required (described later), the
+% value written to {\tt mtinst} or {\tt htinst} may always be zero,
+% indicating that the hardware is providing no information in the register
+% for this particular trap.
+
+\begin{commentary}
+  写入陷入指令CSR的值有两个目的。
+  第一个目的是提高陷入处理程序中指令模拟的速度，一种方式是通过允许处理程序（handler）跳过从内存中加载陷入指令，另一种方式是通过避免解码和执行指令的一些工作。
+  第二个目的是通过伪指令提供关于宾客页面错误异常的附加信息，这些异常是由为VS阶段地址转换而执行的隐式内存访问引起的。
+% The value written to the trap instruction CSR serves two purposes.
+% The first is to improve the speed of instruction emulation in a trap
+% handler, partly by allowing the handler to skip loading the trapping
+% instruction from memory, and partly by obviating some of the work of
+% decoding and executing the instruction.
+% The second purpose is to supply, via pseudoinstructions, additional
+% information about guest-page-fault exceptions caused by implicit memory
+% accesses done for VS-stage address translation.
+
+为了最小化硬件的负担，陷入指令的\emph{转换}被写入而不是原有指令的复制，然而仍旧为陷入处理程序提供了模拟指令所需要的信息的。
+% A \emph{transformation} of the trapping instruction is written instead of
+% simply a copy of the original instruction in order to minimize the burden
+% for hardware yet still provide to a trap handler the information needed
+% to emulate the instruction.
+% An implementation may at any time reduce its effort by substituting zero
+% in place of the transformed instruction.
+\end{commentary}
+
+在一个中断中，写入到陷入指令寄存器中的值总是零。
+在一个同步异常中，如果写入一个非零值，则该值应符合以下条件之一:
+% On an interrupt, the value written to the trap instruction register is
+% always zero.
+% On a synchronous exception, if a nonzero value is written, one of the
+% following shall be true about the value:
+
+\begin{itemize}
+
+\item
+0位是{\tt 1}，用{\tt 1}替换1位使该值成为标准指令的有效编码。
+% Bit~0 is {\tt 1}, and replacing bit~1 with {\tt 1} makes the value into a
+% valid encoding of a standard instruction.
+
+在这种情况下，发生陷入的指令与寄存器值指示的指令是同一种类型，并且寄存器值是陷入指令的转换，如后面所定义的。
+例如，如果0-1位是二进制{\tt 11}，寄存器值是标准LW(加载字)指令的编码，那么陷入指令就是LW，寄存器值是发生陷入的LW指令的转换。
+% In this case, the instruction that trapped is the same kind as indicated
+% by the register value, and the register value is the transformation of
+% the trapping instruction, as defined later.
+% For example, if bits 1:0 are binary {\tt 11} and the register value is
+% the encoding of a standard LW (load word) instruction, then the trapping
+% instruction is LW, and the register value is the transformation of the
+% trapping LW instruction.
+
+\item
+0位为{\tt 1}，用{\tt 1}替换1位将使该值变为为自定义指令显式指定的指令编码(\emph{不是}为未使用的保留编码)。
+% Bit~0 is {\tt 1}, and replacing bit~1 with {\tt 1} makes the value into
+% an instruction encoding that is explicitly designated for a custom
+% instruction (\emph{not} an unused reserved encoding).
+
+这是一个\textit{定制值}。发生陷入的指令是非标准指令。本标准对自定义值的解释没有另行规定。
+This is a \textit{custom value}.
+% The instruction that trapped is a non-standard instruction.
+% The interpretation of a custom value is not otherwise specified by this
+% standard.
+
+\item
+该值是稍后定义的一个特殊伪指令，所有这些伪指令的位0-1位都等于{\tt 00}。
+% The value is one of the special pseudoinstructions defined later, all of
+% which have bits 1:0 equal to {\tt 00}.
+
+\end{itemize}
+
+这三种情况排除了大量其他可能的值，例如所有0-1位等于二进制{\tt 10}的值。
+未来的标准或扩展可能定义额外的情况，从而允许当前被排除的值。软件可以安全地将陷入指令寄存器中不可识别的值视为零。
+% These three cases exclude a large number of other possible values, such
+% as all those having bits 1:0 equal to binary {\tt 10}.
+% A future standard or extension may define additional cases, thus allowing
+% values that are currently excluded.
+% Software may safely treat an unrecognized value in a trap instruction
+% register the same as zero.
+
+\begin{commentary}
+  为了与本标准的未来修订版向前兼容，从{\tt mtinst}或{\tt htinst}解释非零值的软件必须完全验证该值符合上面列出的情况之一。
+  例如，对于RV64，发现{\tt mtinst}的0-6位是{\tt 0000011}，12-14位是{\tt 010}并不足以证实
+  此情形适用于第一种情况，并且捕获指令是一个标准的LW指令；
+  相反，软件还必须确认{\tt mtinst}的32-63位都是零。
+% To be forward-compatible with future revisions of this standard, software
+% that interprets a nonzero value from {\tt mtinst} or {\tt htinst} must
+% fully verify that the value conforms to one of the cases listed above.
+% For instance, for RV64, discovering that bits 6:0 of {\tt mtinst} are
+% {\tt 0000011} and bits 14:12 are {\tt 010} is not sufficient to establish
+% that the first case applies and the trapping instruction is a standard LW
+% instruction;
+% rather, software must also confirm that bits 63:32 of {\tt mtinst} are
+% all zeros.
+
+未来的标准可能会为64位{\tt mtinst}定义新的值，这些值在32-63位中非零，但在0-31位中可能具有与标准RV64指令相同的位模式。
+% A future standard might define new values for 64-bit {\tt mtinst} that
+% are nonzero in bits 63:32 yet may coincidentally have in bits 31:0 the
+% same bit patterns as standard RV64 instructions.
+\end{commentary}
+
+\begin{commentary}
+  与标准指令不同的是，不要求自定义值的指令编码与发生陷入的指令具有相同的“类型”（甚至不要求与陷入指令有任何关联）。
+% Unlike for standard instructions, there is no requirement that the
+% instruction encoding of a custom value be of the same ``kind'' as the
+% instruction that trapped (or even have any correlation with the trapping
+% instruction).
+\end{commentary}
+
+表~\ref{tab:tinstt-values}显示了可能会针对每个标准异常原因自动写入陷入指令寄存器的值。
+对于阻止获取指令的异常，只能写入零或伪指令值。
+只有当发生陷入的指令是非标准的时候，才会自动写入自定义值。
+未来的标准或扩展可能允许编写其他值，从前面建立的允许值集中选择这些值。
+% Table~\ref{tab:tinst-values} shows the values that may be automatically
+% written to the trap instruction register for each standard exception
+% cause.
+% For exceptions that prevent the fetching of an instruction, only zero or
+% a pseudoinstruction value may be written.
+% A custom value may be automatically written only if the instruction that
+% traps is non-standard.
+% A future standard or extension may permit other values to be written,
+% chosen from the set of allowed values established earlier.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+                               &      & Transformed &        & Pseudo- \\
+                               &      & Standard    & Custom & instruction \\
+Exception                      & Zero & Instruction & Value  & Value \\
+\hline
+Instruction address misaligned & Yes  & No          & Yes    & No  \\
+\hline
+Instruction access fault       & Yes  & No          & No     & No  \\
+Illegal instruction            & Yes  & No          & No     & No  \\
+Breakpoint                     & Yes  & No          & Yes    & No  \\
+Virtual instruction            & Yes  & No          & Yes    & No  \\
+\hline
+Load address misaligned        & Yes  & Yes         & Yes    & No  \\
+Load access fault              & Yes  & Yes         & Yes    & No  \\
+Store/AMO address misaligned   & Yes  & Yes         & Yes    & No  \\
+Store/AMO access fault         & Yes  & Yes         & Yes    & No  \\
+\hline
+Environment call               & Yes  & No          & Yes    & No  \\
+\hline
+Instruction page fault         & Yes  & No          & No     & No  \\
+Load page fault                & Yes  & Yes         & Yes    & No  \\
+Store/AMO page fault           & Yes  & Yes         & Yes    & No  \\
+\hline
+Instruction guest-page fault   & Yes  & No          & No     & Yes \\
+Load guest-page fault          & Yes  & Yes         & Yes    & Yes \\
+Store/AMO guest-page fault     & Yes  & Yes         & Yes    & Yes \\
+\hline
+\end{tabular}
+\end{center}
+\caption{ 在异常陷入中，可能被自动写入陷入指令寄存器（{\tt mtinst}或{\tt htinst}）的值。
+%   Values that may be automatically written to the trap instruction
+% register ({\tt mtinst} or {\tt htinst}) on an exception trap.
+}
+\label{tab:tinst-values}
+\end{table*}
+
+如表中所列举的，同步异常向陷入指令寄存器中写入，只针对显式内存访问(从load、store和AMO指令)引起的异常的陷入指令的标准转换。
+因此，目前仅为这些内存访问指令定义了标准转换。
+如果同步陷入发生在没有定义转换的标准指令上，那么陷入指令寄存器应该写为零(或者，在某些情况下，写为一个特殊的伪指令值)。
+% As enumerated in the table, a synchronous exception may write to the trap
+% instruction register a standard transformation of the trapping
+% instruction only for exceptions that arise from explicit memory accesses
+% (from loads, stores, and AMO instructions).
+% Accordingly, standard transformations are currently defined only for
+% these memory-access instructions.
+% If a synchronous trap occurs for a standard instruction for which no
+% transformation has been defined, the trap instruction register shall be
+% written with zero (or, under certain circumstances, with a special
+% pseudoinstruction value).
+
+\FloatBarrier
+
+对于不是压缩指令，而是LB、LBU、LH、LHU、LW、LWU、LD、FLW、FLD、FLQ或FLH之一的标准加载指令，
+转换后的指令格式如图~\ref{transformmedloadinst}所示。
+% For a standard load instruction that is not a compressed instruction and
+% is one of LB, LBU, LH, LHU, LW, LWU, LD, FLW, FLD, FLQ, or FLH, the
+% transformed instruction has the format shown in
+% Figure~\ref{transformedloadinst}.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}O@{}R@{}R@{}F@{}R@{}S}
+\\
+\instbitrange{31}{25} &
+\instbitrange{24}{20} &
+\instbitrange{19}{15} &
+\instbitrange{14}{12} &
+\instbitrange{11}{7} &
+\instbitrange{6}{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{Addr.\ Offset} &
+\multicolumn{1}{c|}{funct3} &
+\multicolumn{1}{c|}{rd} &
+\multicolumn{1}{c|}{opcode} \\
+\hline
+7 & 5 & 5 & 3 & 5 & 7 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Transformed noncompressed load instruction (LB, LBU, LH, LHU,
+LW, LWU, LD, FLW, FLD, FLQ, or FLH).
+Fields funct3, rd, and opcode are the same as the trapping load
+instruction.}
+\label{transformedloadinst}
+\end{figure*}
+
+对于不是压缩指令，而是SB、SH、SW、SD、FSW、FSD、FSQ或FSH之一的标准存储指令，转换后的指令格式如图~\ref{transformmedstoreinst}所示。
+% For a standard store instruction that is not a compressed instruction and
+% is one of SB, SH, SW, SD, FSW, FSD, FSQ, or FSH, the transformed instruction
+% has the format shown in Figure~\ref{transformedstoreinst}.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}O@{}R@{}R@{}F@{}R@{}S}
+\\
+\instbitrange{31}{25} &
+\instbitrange{24}{20} &
+\instbitrange{19}{15} &
+\instbitrange{14}{12} &
+\instbitrange{11}{7} &
+\instbitrange{6}{0} \\
+\hline
+\multicolumn{1}{|c|}{0} &
+\multicolumn{1}{c|}{rs2} &
+\multicolumn{1}{c|}{Addr.\ Offset} &
+\multicolumn{1}{c|}{funct3} &
+\multicolumn{1}{c|}{0} &
+\multicolumn{1}{c|}{opcode} \\
+\hline
+7 & 5 & 5 & 3 & 5 & 7 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Transformed noncompressed store instruction (SB, SH, SW, SD,
+FSW, FSD, FSQ, or FSH).
+Fields rs2, funct3, and opcode are the same as the trapping store
+instruction.}
+\label{transformedstoreinst}
+\end{figure*}
+
+对于标准原子指令(保留加载、条件存储或AMO指令)，转换后的指令格式如图~\ref{transformmetomicinst}所示。
+% For a standard atomic instruction (load-reserved, store-conditional, or
+% AMO instruction), the transformed instruction has the format shown in
+% Figure~\ref{transformedatomicinst}.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}R@{}c@{}c@{}R@{}R@{}F@{}R@{}S}
+\\
+\instbitrange{31}{27} &
+\instbit{26} &
+\instbit{25} &
+\instbitrange{24}{20} &
+\instbitrange{19}{15} &
+\instbitrange{14}{12} &
+\instbitrange{11}{7} &
+\instbitrange{6}{0} \\
+\hline
+\multicolumn{1}{|c|}{funct5} &
+\multicolumn{1}{c|}{aq} &
+\multicolumn{1}{c|}{rl} &
+\multicolumn{1}{c|}{rs2} &
+\multicolumn{1}{c|}{Addr.\ Offset} &
+\multicolumn{1}{c|}{funct3} &
+\multicolumn{1}{c|}{rd} &
+\multicolumn{1}{c|}{opcode} \\
+\hline
+5 & 1 & 1 & 5 & 5 & 3 & 5 & 7 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Transformed atomic instruction (load-reserved,
+store-conditional, or AMO instruction).
+All fields are the same as the trapping instruction except bits 19:15,
+Addr.\ Offset.}
+\label{transformedatomicinst}
+\end{figure*}
+
+对于标准的虚拟机加载/存储指令(HLV、HLVX或HSV)，转换后的指令的格式如图~\ref{transformedvmaccessinst}所示。
+% For a standard virtual-machine load/store instruction
+% (HLV, HLVX, or HSV), the transformed instruction has the format shown in
+% Figure~\ref{transformedvmaccessinst}.
+
+\begin{figure*}[h!]
+{\footnotesize
+\begin{center}
+\begin{tabular}{@{}O@{}R@{}R@{}F@{}R@{}S}
+\\
+\instbitrange{31}{25} &
+\instbitrange{24}{20} &
+\instbitrange{19}{15} &
+\instbitrange{14}{12} &
+\instbitrange{11}{7} &
+\instbitrange{6}{0} \\
+\hline
+\multicolumn{1}{|c|}{funct7} &
+\multicolumn{1}{c|}{rs2} &
+\multicolumn{1}{c|}{Addr.\ Offset} &
+\multicolumn{1}{c|}{funct3} &
+\multicolumn{1}{c|}{rd} &
+\multicolumn{1}{c|}{opcode} \\
+\hline
+7 & 5 & 5 & 3 & 5 & 7 \\
+\end{tabular}
+\end{center}
+}
+\vspace{-0.1in}
+\caption{Transformed virtual-machine load/store instruction (HLV, HLVX, HSV).
+All fields are the same as the trapping instruction except bits 19:15,
+Addr.\ Offset.}
+\label{transformedvmaccessinst}
+\end{figure*}
+
+在以上所有转换的指令中，Addr.\ Offset字段是错误虚拟地址（写入{\tt mtval}或{\tt stval}）与原始虚拟地址之间的正差值，它代替了指令15-19位的rs1字段。
+只有在非对齐内存访问的情况下，此差异才可能是非零的。还要注意，对于基本的加载和存储，转换将指令的直接偏移字段替换为零。
+% In all the transformed instructions above, the Addr.\ Offset field that
+% replaces the instruction's rs1 field in bits 19:15 is the positive
+% difference between the faulting virtual address (written to {\tt mtval}
+% or {\tt stval}) and the original virtual address.
+% This difference can be nonzero only for a misaligned memory access.
+% Note also that, for basic loads and stores, the transformations replace
+% the instruction's immediate offset fields with zero.
+
+对于标准压缩指令（16位长），转换指令如下所示：
+% For a standard compressed instruction (16-bit size), the transformed
+% instruction is found as follows:
+\begin{enumerate}
+\item
+拓展压缩指令为等价的32位指令。
+% Expand the compressed instruction to its 32-bit equivalent.
+\item
+转换这个32位等价指令。
+% Transform the 32-bit equivalent instruction.
+\item
+用a~{\tt 0}代替第1位。
+% Replace bit~1 with a~{\tt 0}.
+\end{enumerate}
+如果陷入指令被压缩，则转换后的标准指令的第0-1位将是二进制{\tt 01}，否则将是{\tt 11}。
+% Bits 1:0 of a transformed standard instruction will be binary {\tt 01} if
+% the trapping instruction is compressed and {\tt 11} if not.
+
+\begin{commentary}
+  在解码{\tt mtinst}或{\tt htinst}的内容时，一旦软件确定了寄存器包含标准基本加载（LB, LBU, LH, LHU, LW, LWU, LD, FLW, FLD, FLQ，或FLH）
+  或基本存储（SB, SH, SW, SD, FSW, FSD, FSQ，或FSH）的编码，就不需要确认立即偏移字段（31:25，和24:20或11:7）为零。
+  知道寄存器的值是基本加载/存储的编码就足以证明陷入指令是同类指令。
+% In decoding the contents of {\tt mtinst} or {\tt htinst}, once software
+% has determined that the register contains the encoding of a standard
+% basic load (LB, LBU, LH, LHU, LW, LWU, LD, FLW, FLD, FLQ, or FLH) or basic
+% store (SB, SH, SW, SD, FSW, FSD, FSQ, or FSH), it is not necessary to confirm
+% also that the immediate offset fields (31:25, and 24:20 or 11:7) are
+% zeros.
+% The knowledge that the register's value is the encoding of a basic
+% load/store is sufficient to prove that the trapping instruction is of the
+% same kind.
+
+该标准的未来版本可能会向当前为零的字段添加信息。但是，为了向后兼容，任何此类信息都只用于性能目的，可以安全地忽略。
+% A future version of this standard may add information to the fields that
+% are currently zeros.
+% However, for backwards compatibility, any such information will be for
+% performance purposes only and can safely be ignored.
+\end{commentary}
+
+对于宾客页错误，陷入指令寄存器在以下情况下用一个特殊的伪指令值写入：
+（a）在VS阶段地址翻译过程中，隐式内存访问引起的错误，并且
+（b）向{\tt mtval2}或{\tt htval}写入非零值（错误宾客物理地址）。
+% For guest-page faults, the trap instruction register is written with a
+% special pseudoinstruction value if:
+% (a)~the fault is caused by an implicit memory access for VS-stage address
+% translation, and
+% (b)~a nonzero value (the faulting guest physical address) is written to
+% {\tt mtval2} or {\tt htval}.
+如果两个条件都符合，那么写入{\tt mtinst}或{\tt htinst}的值必须从表~\ref{tab:pseudoinsts}选择；零是不被允许的。
+% If both conditions are met, the value written to {\tt mtinst} or
+% {\tt htinst} must be taken from Table~\ref{tab:pseudoinsts};
+% zero is not allowed.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+Value            & Meaning \\
+\hline
+{\tt 0x00002000} & 32-bit read for VS-stage address translation (RV32) \\
+{\tt 0x00002020} & 32-bit write for VS-stage address translation (RV32) \\
+\hline
+{\tt 0x00003000} & 64-bit read for VS-stage address translation (RV64) \\
+{\tt 0x00003020} & 64-bit write for VS-stage address translation (RV64) \\
+\hline
+\end{tabular}
+\end{center}
+\caption{Special pseudoinstruction values for guest-page faults.
+The RV32 values are used when VSXLEN=32, and the RV64 values when VSXLEN=64.}
+\label{tab:pseudoinsts}
+\end{table*}
+
+所定义的伪指令值被设计为与基本加载和存储的编码密切对应，如Table~\ref{tab:pseudoinsts-basis}所示。
+% The defined pseudoinstruction values are designed to correspond closely
+% with the encodings of basic loads and stores, as illustrated by
+% Table~\ref{tab:pseudoinsts-basis}.
+
+\begin{table*}[h!]
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+Encoding         & Instruction \\ \hline
+{\tt 0x00002003} & {\tt lw x0,0(x0)} \\
+{\tt 0x00002023} & {\tt sw x0,0(x0)} \\ \hline
+{\tt 0x00003003} & {\tt ld x0,0(x0)} \\
+{\tt 0x00003023} & {\tt sd x0,0(x0)} \\ \hline
+\end{tabular}
+\end{center}
+\caption{Standard instructions corresponding to the special
+pseudoinstructions of Table~\ref{tab:pseudoinsts}.}
+\label{tab:pseudoinsts-basis}
+\end{table*}
+
+\textit{write}伪指令({\tt 0x00002020}或{\tt 0x00003020})用于机器试图自动更新VS级页表中的位A和/或D的情况。
+所有其他用于VS阶段地址翻译的隐式内存访问都将被读取。如果机器从不自动更新VS级页表中的A位或D位(将此留给软件)，
+则永远不会出现\textit{write}情况。这样的页表更新实际上必须是原子的，而不仅仅是一个简单的写入，这一事实在伪指令中被忽略了。
+% A \textit{write} pseudoinstruction ({\tt 0x00002020} or {\tt 0x00003020})
+% is used for the case that the machine is attempting automatically to
+% update bits A and/or D in VS-level page tables.
+% All other implicit memory accesses for VS-stage address translation will
+% be reads.
+% If a machine never automatically updates bits A or D in VS-level page
+% tables (leaving this to software), the \textit{write} case will never
+% arise.
+% The fact that such a page table update must actually be atomic, not just
+% a simple write, is ignored for the pseudoinstruction.
+
+\begin{commentary}
+  如果需要伪指令值的条件可以出现在M模式中，
+  那么{\tt mtinst}不可能完全只读为零；HS-mode和{\tt htinst}也是如此。
+  然而，在这种情况下，陷入指令寄存器在只需要一个或两个硬件触发器，就可能最低限度地支持值0和{\tt 0x00002000}或{\tt 0x00003000}，可能还支持{\tt 0x00002020}或{\tt 0x00003020}，
+% If the conditions that necessitate a pseudoinstruction value can ever
+% occur for M-mode, then {\tt mtinst} cannot be entirely read-only zero;
+% and likewise for HS-mode and {\tt htinst}.
+% However, in that case, the trap instruction registers may minimally
+% support only values 0 and {\tt 0x00002000} or {\tt 0x00003000}, and
+% possibly {\tt 0x00002020} or {\tt 0x00003020}, requiring as few as one or
+% two flip-flops in hardware, per register.
+\end{commentary}
+
+\begin{commentary}
+  忽略页表更新的原子性要求在这里没有什么坏处，因为在这些情况下，超级监管器不希望模拟失败的隐式内存访问。
+  相反，在通过重试错误指令恢复执行之前，超级监管器被提供了足够的关于错误访问的信息，以便能够使内存被访问（例如通过恢复虚拟内存的一个缺失页）。
+% There is no harm here in ignoring the atomicity requirement for page
+% table updates, because a hypervisor is not expected in these
+% circumstances to emulate an implicit memory access that fails.
+% Rather, the hypervisor is given enough information about the faulting
+% access to be able to make the memory accessible (e.g.\ by restoring a
+% missing page of virtual memory) before resuming execution by retrying the
+% faulting instruction.
+\end{commentary}
+
+\subsection{陷入返回}
+% \subsection{Trap Return}
+
+MRET指令用于进入M模式的陷入的返回。
+MRET首先根据{\tt mstatus}或{\tt mstatush}中的MPP和MPV的值（其编码在表~\ref{h-mpp}中）确定新的特权模式是什么。
+然后，MRET在{\tt mstatus}/{\tt mstatush}中设置MPV=0, MPP=0, MIE=MPIE, MPIE=1。
+最后，MRET将特权模式设置成先前决定的特权模式，并设置{\tt pc}={\tt mepc}。
+% The MRET instruction is used to return from a trap taken into M-mode.
+% MRET first determines what the new privilege mode will be according to
+% the values of MPP and MPV in {\tt mstatus} or {\tt mstatush}, as encoded in
+% Table~\ref{h-mpp}.
+% MRET then in {\tt mstatus}/{\tt mstatush} sets MPV=0, MPP=0, MIE=MPIE, and MPIE=1.
+% Lastly, MRET sets the privilege mode as previously
+% determined, and sets {\tt pc}={\tt mepc}.
+
+SRET指令用于进入HS模式或VS模式的陷入返回。它的行为取决于当前的虚拟模式。
+% The SRET instruction is used to return from a trap taken into HS-mode or
+% VS-mode.  Its behavior depends on the current virtualization mode.
+
+当在M模式或HS模式(即V=0)执行时，SRET首先根据{\tt hstatus}.SPV和{\tt sstatus}.SPP中的值（其编码在表~\ref{h-spp}中）确定新的特权模式是什么。
+然后SRET设置{\tt hstatus}.SPV=0，在{\tt sstatus}中设置SPP=0, SIE=SPIE, SPIE=1。
+最后，SRET将特权模式设置成先前决定的特权模式，并设置{\tt pc}={\tt sepc}。
+% When executed in M-mode or HS-mode (i.e., V=0), SRET first determines
+% what the new privilege mode will be according to the values in
+% {\tt hstatus}.SPV and {\tt sstatus}.SPP, as encoded in Table~\ref{h-spp}.
+% SRET then sets {\tt hstatus}.SPV=0, and in {\tt sstatus} sets SPP=0,
+% SIE=SPIE, and SPIE=1.
+% Lastly, SRET sets the privilege mode as previously
+% determined, and sets {\tt pc}={\tt sepc}.
+
+当SRET以VS模式(即V=1)执行时，根据表~\ref{h-vspp}设置特权模式，在{\tt vsstatus}中设置SPP=0, SIE=SPIE, SPIE=1，最后设置{\tt pc}={\tt vsepc}。
+% When executed in VS-mode (i.e., V=1), SRET sets the privilege mode according to
+% Table~\ref{h-vspp}, in {\tt vsstatus} sets SPP=0, SIE=SPIE, and SPIE=1, and
+% lastly sets {\tt pc}={\tt vsepc}.

@@ -1,0 +1,602 @@
+#-----------------------------------------------------------
+# Vivado v2018.3 (64-bit)
+# SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+# IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+# Start of session at: Thu Aug 15 21:16:43 2024
+# Process ID: 27068
+# Current directory: D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor
+# Command line: vivado.exe -gui_launcher_event rodinguilauncherevent31568 D:\BaiduSyncdisk\Project\RISC-V\single-cycle processor-upset\single-cycle processor\single-cycle processor.xpr
+# Log file: D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/vivado.log
+# Journal file: D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor\vivado.jou
+#-----------------------------------------------------------
+start_guioopen_project {D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.xpr}
+INFO: [ProjectBase 1-489] The host OS only allows 260 characters in a normal path. The project is stored in a path with more than 80 characters. If you experience issues with IP, Block Designs, or files not being found, please consider moving the project to a location with a shorter path. Alternately consider using the OS subst command to map part of the path to a drive letter.
+Current project path is 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor'
+Scanning sources...
+Finished scanning sources
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository 'C:/Software/Xilinx/Vivado/2018.3/data/ip'.
+open_project: Time (s): cpu = 00:00:05 ; elapsed = 00:00:07 . Memory (MB): peak = 828.180 ; gain = 171.133
+update_compile_order -fileset sources_1exit
+INFO: [Common 17-206] Exiting Vivado at Thu Aug 15 21:17:36 2024...
+led to delete one or more files in run directory D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.runs/synth_1
+
+launch_runs synth_1 -jobs 16
+[Thu Aug 15 21:17:35 2024] Launched synth_1...
+Run output will be captured here: D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.runs/synth_1/runme.log
+reset_run synth_1
+launch_runs synth_1 -jobs 16
+[Thu Aug 15 21:18:24 2024] Launched synth_1...
+Run output will be captured here: D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.runs/synth_1/runme.log
+reset_run synth_1
+launch_runs synth_1 -jobs 16
+[Thu Aug 15 21:19:46 2024] Launched synth_1...
+Run output will be captured here: D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.runs/synth_1/runme.log
+synth_design -rtl -name rtl_1
+Command: synth_design -rtl -name rtl_1
+Starting synth_design
+Using part: xc7vx485tffg1157-1
+Top: top_cpu
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 912.926 ; gain = 65.727
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'top_cpu' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:3]
+INFO: [Synth 8-6157] synthesizing module 'risc_v' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:3]
+INFO: [Synth 8-6157] synthesizing module 'datapath' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:23]
+INFO: [Synth 8-6157] synthesizing module 'pc' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/pc.v:23]
+INFO: [Synth 8-6155] done synthesizing module 'pc' (1#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/pc.v:23]
+INFO: [Synth 8-6157] synthesizing module 'decoder' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/decoder.v:23]
+WARNING: [Synth 8-324] index 1412 out of range [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/decoder.v:49]
+INFO: [Synth 8-6155] done synthesizing module 'decoder' (2#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/decoder.v:23]
+WARNING: [Synth 8-689] width (1) of port connection 'func7' does not match port width (7) of module 'decoder' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:85]
+WARNING: [Synth 8-689] width (1) of port connection 'func3' does not match port width (3) of module 'decoder' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:86]
+INFO: [Synth 8-6157] synthesizing module 'regfile' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/regfile.v:23]
+INFO: [Synth 8-6155] done synthesizing module 'regfile' (3#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/regfile.v:23]
+INFO: [Synth 8-6157] synthesizing module 'alu' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu.v:5]
+INFO: [Synth 8-6155] done synthesizing module 'alu' (4#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu.v:5]
+INFO: [Synth 8-6157] synthesizing module 'MUX' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:177]
+INFO: [Synth 8-6155] done synthesizing module 'MUX' (5#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:177]
+INFO: [Synth 8-6157] synthesizing module 'ADD' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:197]
+INFO: [Synth 8-6155] done synthesizing module 'ADD' (6#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:197]
+WARNING: [Synth 8-3848] Net mem_wr_data in module/entity datapath does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:40]
+WARNING: [Synth 8-3848] Net alu_data1 in module/entity datapath does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:64]
+WARNING: [Synth 8-3848] Net rs2_data in module/entity datapath does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:60]
+WARNING: [Synth 8-3848] Net U_type in module/entity datapath does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:121]
+WARNING: [Synth 8-3848] Net lui in module/entity datapath does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:127]
+WARNING: [Synth 8-3848] Net reg_data_3 in module/entity datapath does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:131]
+INFO: [Synth 8-6155] done synthesizing module 'datapath' (7#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:23]
+WARNING: [Synth 8-6104] Input port 'mem_wr_data' has an internal driver [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:45]
+INFO: [Synth 8-6157] synthesizing module 'control' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:3]
+INFO: [Synth 8-6157] synthesizing module 'main_control' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:3]
+WARNING: [Synth 8-3848] Net jump in module/entity main_control does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'main_control' (8#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:3]
+INFO: [Synth 8-6157] synthesizing module 'alu_control' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu_control.v:23]
+INFO: [Synth 8-226] default block is never used [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu_control.v:51]
+INFO: [Synth 8-6155] done synthesizing module 'alu_control' (9#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu_control.v:23]
+WARNING: [Synth 8-689] width (4) of port connection 'func3' does not match port width (3) of module 'alu_control' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:43]
+WARNING: [Synth 8-689] width (8) of port connection 'func7' does not match port width (7) of module 'alu_control' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:44]
+INFO: [Synth 8-6155] done synthesizing module 'control' (10#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:3]
+WARNING: [Synth 8-350] instance 'control_u' of module 'control' requires 15 connections, but only 14 given [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3848] Net opcode in module/entity risc_v does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:26]
+WARNING: [Synth 8-3848] Net func3 in module/entity risc_v does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:27]
+INFO: [Synth 8-6155] done synthesizing module 'risc_v' (11#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:3]
+WARNING: [Synth 8-689] width (1) of port connection 'mem_addr' does not match port width (32) of module 'risc_v' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:26]
+WARNING: [Synth 8-689] width (3) of port connection 'rw_type' does not match port width (4) of module 'risc_v' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:27]
+INFO: [Synth 8-6157] synthesizing module 'data_mem' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v:3]
+WARNING: [Synth 8-324] index 15 out of range [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v:46]
+WARNING: [Synth 8-3848] Net wr_data_w in module/entity data_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v:28]
+INFO: [Synth 8-6155] done synthesizing module 'data_mem' (12#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v:3]
+WARNING: [Synth 8-689] width (1) of port connection 'rd_data' does not match port width (32) of module 'data_mem' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:38]
+INFO: [Synth 8-6157] synthesizing module 'inst_mem' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:3]
+CRITICAL WARNING: [Synth 8-4445] could not open $readmem data file '../../../../single-cycle processor.srcs/sim_1/new/rom_inst_bin.txt'; please make sure the file is added to project and has read permission, ignoring [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:12]
+
+Warning: Trying to implement RAM in registers. Block RAM or DRAM implementation is not possible for one or more of the following reasons :
+	1: Unable to determine number of words or word size in RAM. 
+	2: No valid read/write found for RAM. 
+RAM dissolved into registers
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+WARNING: [Synth 8-3848] Net rom in module/entity inst_mem does not have driver. [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:9]
+INFO: [Common 17-14] Message 'Synth 8-3848' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-6155] done synthesizing module 'inst_mem' (13#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v:3]
+WARNING: [Synth 8-689] width (32) of port connection 'addr' does not match port width (8) of module 'inst_mem' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:42]
+INFO: [Synth 8-6155] done synthesizing module 'top_cpu' (14#1) [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:3]
+WARNING: [Synth 8-3331] design data_mem has unconnected port rst_n
+WARNING: [Synth 8-3331] design data_mem has unconnected port rd_en
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[31]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[30]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[29]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[28]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[27]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[26]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[25]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[24]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[23]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[22]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[21]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[20]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[19]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[18]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[17]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[16]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[15]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[14]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[13]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[12]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[11]
+WARNING: [Synth 8-3331] design data_mem has unconnected port addr[10]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[31]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[30]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[29]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[28]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[27]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[26]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[25]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[24]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[23]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[22]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[21]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[20]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[19]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[18]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[17]
+WARNING: [Synth 8-3331] design data_mem has unconnected port wr_data[16]
+WARNING: [Synth 8-3331] design alu_control has unconnected port func7[6]
+WARNING: [Synth 8-3331] design alu_control has unconnected port func7[4]
+WARNING: [Synth 8-3331] design alu_control has unconnected port func7[3]
+WARNING: [Synth 8-3331] design alu_control has unconnected port func7[2]
+WARNING: [Synth 8-3331] design alu_control has unconnected port func7[1]
+WARNING: [Synth 8-3331] design alu_control has unconnected port func7[0]
+WARNING: [Synth 8-3331] design main_control has unconnected port jump
+WARNING: [Synth 8-3331] design control has unconnected port func7[7]
+WARNING: [Synth 8-3331] design decoder has unconnected port inst[14]
+WARNING: [Synth 8-3331] design decoder has unconnected port inst[13]
+WARNING: [Synth 8-3331] design decoder has unconnected port inst[12]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[31]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[30]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[29]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[28]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[27]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[26]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[25]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[24]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[23]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[22]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[21]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[20]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[19]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[18]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[17]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[16]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[15]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[14]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[13]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[12]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[11]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[10]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[9]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[8]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[7]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[6]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[5]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[4]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[3]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[2]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[1]
+WARNING: [Synth 8-3331] design datapath has unconnected port mem_wr_data[0]
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 952.258 ; gain = 105.059
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[31] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[30] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[29] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[28] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[27] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[26] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[25] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[24] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[23] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[22] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[21] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[20] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[19] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[18] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[17] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[16] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[15] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[14] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[13] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[12] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[11] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[10] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[9] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[8] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[7] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[6] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[5] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[4] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[3] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[2] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[1] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin alu:data1[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:105]
+WARNING: [Synth 8-3295] tying undriven pin MUX_regdata_1:sel to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:118]
+WARNING: [Synth 8-3295] tying undriven pin MUX_regdata_2:sel to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:124]
+WARNING: [Synth 8-3295] tying undriven pin MUX_regdata_3:data1[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:130]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[6] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[5] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[4] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[3] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[2] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[1] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:opcode[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func3[3] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func3[2] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func3[1] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func3[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[6] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[5] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[4] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[3] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[2] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[1] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin control_u:func7[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v:49]
+WARNING: [Synth 8-3295] tying undriven pin risc_v_u:mem_wr_data[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:17]
+WARNING: [Synth 8-3295] tying undriven pin data_mem_u:wr_data[0] to constant 0 [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:30]
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 952.258 ; gain = 105.059
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 952.258 ; gain = 105.059
+---------------------------------------------------------------------------------
+INFO: [Device 21-403] Loading part xc7vx485tffg1157-1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Completed Processing XDC Constraints
+
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.001 . Memory (MB): peak = 1406.344 ; gain = 0.000
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+RTL Elaboration Complete:  : Time (s): cpu = 00:00:15 ; elapsed = 00:00:18 . Memory (MB): peak = 1595.250 ; gain = 748.051
+34 Infos, 250 Warnings, 1 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:15 ; elapsed = 00:00:18 . Memory (MB): peak = 1595.250 ; gain = 748.051
+set_property SOURCE_SET sources_1 [get_filesets sim_1]
+close [ open {D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sim_1/new/tb_top_cpu.v} w ]
+add_files -fileset sim_1 {{D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sim_1/new/tb_top_cpu.v}}
+update_compile_order -fileset sim_1
+launch_simulation
+INFO: [Vivado 12-5682] Launching behavioral simulation in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [SIM-utils-54] Inspecting design source files for 'tb_inst_mem' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+"xvlog --incr --relax -prj tb_inst_mem_vlog.prj"
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/inst_mem.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module inst_mem
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sim_1/new/tb_inst_mem.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module tb_inst_mem
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+Vivado Simulator 2018.3
+Copyright 1986-1999, 2001-2018 Xilinx, Inc. All Rights Reserved.
+Running: C:/Software/Xilinx/Vivado/2018.3/bin/unwrapped/win64.o/xelab.exe -wto df91492d026d4b5b97f2b202ef9e21c5 --incr --debug typical --relax --mt 2 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot tb_inst_mem_behav xil_defaultlib.tb_inst_mem xil_defaultlib.glbl -log elaborate.log 
+Using 2 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.inst_mem
+Compiling module xil_defaultlib.tb_inst_mem
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot tb_inst_mem_behav
+
+****** Webtalk v2018.3 (64-bit)
+  **** SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+  **** IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+    ** Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+
+source D:/BaiduSyncdisk/Project/RISC-V/single-cycle -notrace
+couldn't read file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle": permission denied
+INFO: [Common 17-206] Exiting Webtalk at Thu Aug 15 21:36:41 2024...
+run_program: Time (s): cpu = 00:00:00 ; elapsed = 00:00:10 . Memory (MB): peak = 1595.250 ; gain = 0.000
+INFO: [USF-XSim-69] 'elaborate' step finished in '10' seconds
+INFO: [USF-XSim-4] XSim::Simulate design
+INFO: [USF-XSim-61] Executing 'SIMULATE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+INFO: [USF-XSim-98] *** Running xsim
+   with args "tb_inst_mem_behav -key {Behavioral:sim_1:Functional:tb_inst_mem} -tclbatch {tb_inst_mem.tcl} -log {simulate.log}"
+INFO: [USF-XSim-8] Loading simulator feature
+Vivado Simulator 2018.3
+Time resolution is 1 ps
+source tb_inst_mem.tcl
+# set curr_wave [current_wave_config]
+# if { [string length $curr_wave] == 0 } {
+#   if { [llength [get_objects]] > 0} {
+#     add_wave /
+#     set_property needs_save false [current_wave_config]
+#   } else {
+#      send_msg_id Add_Wave-1 WARNING "No top level signals found. Simulator will start without a wave window. If you want to open a wave window go to 'File->New Waveform Configuration' or type 'create_wave_config' in the TCL console."
+#   }
+# }
+# run 1000ns
+INFO: [USF-XSim-96] XSim completed. Design snapshot 'tb_inst_mem_behav' loaded.
+INFO: [USF-XSim-97] XSim simulation ran for 1000ns
+launch_simulation: Time (s): cpu = 00:00:01 ; elapsed = 00:00:15 . Memory (MB): peak = 1614.035 ; gain = 18.785
+set_property top tb_top_cpu [get_filesets sim_1]
+set_property top_lib xil_defaultlib [get_filesets sim_1]
+update_compile_order -fileset sim_1
+launch_simulation
+INFO: [Vivado 12-5682] Launching behavioral simulation in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [SIM-utils-54] Inspecting design source files for 'tb_top_cpu' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+"xvlog --incr --relax -prj tb_top_cpu_vlog.prj"
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module alu
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/alu_control.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module alu_control
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module control
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module data_mem
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module datapath
+INFO: [VRFC 10-2458] undeclared symbol func7, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:85]
+INFO: [VRFC 10-2458] undeclared symbol func3, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:86]
+INFO: [VRFC 10-2458] undeclared symbol U_type, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:121]
+INFO: [VRFC 10-2458] undeclared symbol lui, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:127]
+INFO: [VRFC 10-2458] undeclared symbol reg_data_3, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:131]
+INFO: [VRFC 10-311] analyzing module MUX
+INFO: [VRFC 10-311] analyzing module ADD
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/decoder.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module decoder
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module main_control
+INFO: [VRFC 10-2458] undeclared symbol beq, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:42]
+INFO: [VRFC 10-2458] undeclared symbol bne, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:43]
+INFO: [VRFC 10-2458] undeclared symbol blt, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:44]
+INFO: [VRFC 10-2458] undeclared symbol bge, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:45]
+INFO: [VRFC 10-2458] undeclared symbol bltu, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:46]
+INFO: [VRFC 10-2458] undeclared symbol bgeu, assumed default net type wire [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/main_control.v:47]
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/pc.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module pc
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/regfile.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module regfile
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/risc_v.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module risc_v
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module top_cpu
+INFO: [VRFC 10-2263] Analyzing Verilog file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sim_1/new/tb_top_cpu.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module tb_top_cpu
+INFO: [USF-XSim-69] 'compile' step finished in '3' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+Vivado Simulator 2018.3
+Copyright 1986-1999, 2001-2018 Xilinx, Inc. All Rights Reserved.
+Running: C:/Software/Xilinx/Vivado/2018.3/bin/unwrapped/win64.o/xelab.exe -wto df91492d026d4b5b97f2b202ef9e21c5 --incr --debug typical --relax --mt 2 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot tb_top_cpu_behav xil_defaultlib.tb_top_cpu xil_defaultlib.glbl -log elaborate.log 
+Using 2 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'mem_rd_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:22]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'mem_wr_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:23]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'mem_addr' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:26]
+WARNING: [VRFC 10-3091] actual bit length 3 differs from formal bit length 4 for port 'rw_type' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:27]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 7 for port 'func7' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:85]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 3 for port 'func3' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:86]
+WARNING: [VRFC 10-3091] actual bit length 4 differs from formal bit length 3 for port 'func3' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:43]
+WARNING: [VRFC 10-3091] actual bit length 8 differs from formal bit length 7 for port 'func7' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:44]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'addr' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:35]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'wr_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:37]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'rd_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:38]
+WARNING: [VRFC 10-3091] actual bit length 32 differs from formal bit length 8 for port 'addr' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:42]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'data1' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:131]
+WARNING: [VRFC 10-3705] select index 1412 into 'inst' is out of bounds [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/decoder.v:49]
+WARNING: [VRFC 10-3705] select index 15 into 'rd_data_b' is out of bounds [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v:46]
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.pc
+Compiling module xil_defaultlib.decoder
+Compiling module xil_defaultlib.regfile
+Compiling module xil_defaultlib.alu
+Compiling module xil_defaultlib.MUX
+Compiling module xil_defaultlib.ADD
+Compiling module xil_defaultlib.datapath
+Compiling module xil_defaultlib.main_control
+Compiling module xil_defaultlib.alu_control
+Compiling module xil_defaultlib.control
+Compiling module xil_defaultlib.risc_v
+Compiling module xil_defaultlib.data_mem
+Compiling module xil_defaultlib.inst_mem
+Compiling module xil_defaultlib.top_cpu
+Compiling module xil_defaultlib.tb_top_cpu
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot tb_top_cpu_behav
+
+****** Webtalk v2018.3 (64-bit)
+  **** SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+  **** IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+    ** Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+
+source D:/BaiduSyncdisk/Project/RISC-V/single-cycle -notrace
+couldn't read file "D:/BaiduSyncdisk/Project/RISC-V/single-cycle": permission denied
+INFO: [Common 17-206] Exiting Webtalk at Thu Aug 15 21:38:52 2024...
+INFO: [USF-XSim-69] 'elaborate' step finished in '5' seconds
+INFO: [USF-XSim-4] XSim::Simulate design
+INFO: [USF-XSim-61] Executing 'SIMULATE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+INFO: [USF-XSim-98] *** Running xsim
+   with args "tb_top_cpu_behav -key {Behavioral:sim_1:Functional:tb_top_cpu} -tclbatch {tb_top_cpu.tcl} -log {simulate.log}"
+INFO: [USF-XSim-8] Loading simulator feature
+Vivado Simulator 2018.3
+Time resolution is 1 ps
+source tb_top_cpu.tcl
+# set curr_wave [current_wave_config]
+# if { [string length $curr_wave] == 0 } {
+#   if { [llength [get_objects]] > 0} {
+#     add_wave /
+#     set_property needs_save false [current_wave_config]
+#   } else {
+#      send_msg_id Add_Wave-1 WARNING "No top level signals found. Simulator will start without a wave window. If you want to open a wave window go to 'File->New Waveform Configuration' or type 'create_wave_config' in the TCL console."
+#   }
+# }
+# run 1000ns
+INFO: [USF-XSim-96] XSim completed. Design snapshot 'tb_top_cpu_behav' loaded.
+INFO: [USF-XSim-97] XSim simulation ran for 1000ns
+launch_simulation: Time (s): cpu = 00:00:01 ; elapsed = 00:00:10 . Memory (MB): peak = 1639.922 ; gain = 24.191
+restart
+INFO: [Simtcl 6-17] Simulation restarted
+run all
+$finish called at time : 2010 ns
+relaunch_sim
+INFO: [Vivado 12-5682] Launching behavioral simulation in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [SIM-utils-54] Inspecting design source files for 'tb_top_cpu' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+"xvlog --incr --relax -prj tb_top_cpu_vlog.prj"
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [Vivado 12-5682] Launching behavioral simulation in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in 'D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.sim/sim_1/behav/xsim'
+Vivado Simulator 2018.3
+Copyright 1986-1999, 2001-2018 Xilinx, Inc. All Rights Reserved.
+Running: C:/Software/Xilinx/Vivado/2018.3/bin/unwrapped/win64.o/xelab.exe -wto df91492d026d4b5b97f2b202ef9e21c5 --incr --debug typical --relax --mt 2 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot tb_top_cpu_behav xil_defaultlib.tb_top_cpu xil_defaultlib.glbl -log elaborate.log 
+Using 2 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'mem_rd_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:22]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'mem_wr_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:23]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'mem_addr' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:26]
+WARNING: [VRFC 10-3091] actual bit length 3 differs from formal bit length 4 for port 'rw_type' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:27]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 7 for port 'func7' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:85]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 3 for port 'func3' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:86]
+WARNING: [VRFC 10-3091] actual bit length 4 differs from formal bit length 3 for port 'func3' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:43]
+WARNING: [VRFC 10-3091] actual bit length 8 differs from formal bit length 7 for port 'func7' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/control.v:44]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'addr' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:35]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'wr_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:37]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'rd_data' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:38]
+WARNING: [VRFC 10-3091] actual bit length 32 differs from formal bit length 8 for port 'addr' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/top_cpu.v:42]
+WARNING: [VRFC 10-3091] actual bit length 1 differs from formal bit length 32 for port 'data1' [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/datapath.v:131]
+WARNING: [VRFC 10-3705] select index 1412 into 'inst' is out of bounds [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/decoder.v:49]
+WARNING: [VRFC 10-3705] select index 15 into 'rd_data_b' is out of bounds [D:/BaiduSyncdisk/Project/RISC-V/single-cycle processor-upset/single-cycle processor/single-cycle processor.srcs/sources_1/new/data_mem.v:46]
+Completed static elaboration
+INFO: [XSIM 43-4323] No Change in HDL. Linking previously generated obj files to create kernel
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2018.3
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:00 ; elapsed = 00:00:06 . Memory (MB): peak = 1647.023 ; gain = 0.000
+close_sim
+INFO: [Simtcl 6-16] Simulation closed
+close_sim
+INFO: [Simtcl 6-16] Simulation closed
+exit
+INFO: [Common 17-206] Exiting Vivado at Thu Aug 15 21:40:36 2024...
